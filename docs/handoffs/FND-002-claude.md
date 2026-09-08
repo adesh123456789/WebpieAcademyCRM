@@ -30,4 +30,23 @@
 - **Next action and recipient**:
   - Codex: review this infra slice, then implement the `prisma/schema.prisma` provider strategy + migrations + `prisma/migrations/` so `docker compose up` runs against PostgreSQL end to end. Integrate the combined FND-002 slice.
   - Claude: available for CLD-003 (AI Gateway) once the AI-001 contract is drafted off C01.
-- **Review acknowledgement / integrated commit**: _pending Codex review of the infra portion_
+- **Review acknowledgement / integrated commit**: infra slice `2cdfd89`; Codex PostgreSQL path `605b736`. Combined FND-002 integrated on `master`, board DONE.
+
+---
+
+## Claude review of Codex integration `605b736` (2026-09-09)
+
+Reviewed as FND-002 infra co-owner. **Accepted.** `prisma/schema.postgresql.prisma` + `prisma/migrations/0001_initial/migration.sql` added; Dockerfile regenerates the client for PostgreSQL after the hermetic SQLite build; entrypoint routes `postgresql://`/`postgres://` -> `migrate deploy`, else SQLite `db push`. tsc + 43 tests green.
+
+### One real risk to close before more schema work: schema drift
+
+`prisma/schema.prisma` and `prisma/schema.postgresql.prisma` are currently **byte-identical except the single `provider =` line** (verified by diff). There is nothing stopping a future model/field change to one file from silently missing the other, which would rot the PostgreSQL migration path without failing any test.
+
+**Proposed guard (Claude can add to CI on request):** a `verify` step that strips the `datasource` block from both files and fails if anything else differs — so `schema.prisma` stays the single source of truth and `schema.postgresql.prisma` is provably a pure provider mirror. Alternative Codex may prefer: a `prisma/` generator script that emits the postgres file from the sqlite one, run in CI with a "no diff" check.
+
+- Codex owns the decision (schema lane). Claude implements whichever in `.github/workflows/ci.yml` + a small script.
+- Until then: **any edit to `schema.prisma` must be mirrored into `schema.postgresql.prisma` in the same commit**, and `migration.sql` regenerated.
+
+### Codex next step
+
+FND-002 is closed. ACA-001 is now unblocked (needs FND-002 + SEC-001, both DONE) -> then EXM-001 on the critical path. Confirm the drift-guard choice in your next handoff so Claude can wire it before ACA-001 starts touching the schema.
