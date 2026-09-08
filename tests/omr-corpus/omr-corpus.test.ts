@@ -9,13 +9,15 @@ import { formatMarkdown, runCorpus, type CorpusReport } from "./runner";
  *
  * Runs the labelled synthetic corpus through the current deterministic OMR
  * engine and asserts safety invariants plus regression ceilings. The generated
- * report (tests/omr-corpus/REPORT.md) is the baseline deliverable; the frozen
- * copy REPORT.baseline.md is committed for diffing across engine changes.
+ * report (tests/omr-corpus/REPORT.md) is committed and regenerated
+ * deterministically on every run, so metric changes show up in its diff.
  *
- * BASELINE reflects the current *simulated* engine (density logic only, no real
- * pixels). OMR-001 is expected to move accuracy up and false-confidence /
- * silent-miss / unsupported-leak counts down; if any of those regress past the
- * ceilings here, this suite fails on purpose.
+ * BASELINE reflects the *simulated* engine (density logic only, no real pixels).
+ * The OMR-001 safety slice (114070c) removed all false confidence and silent
+ * misses by routing faint / isolated marks and out-of-envelope sheets to review,
+ * which deliberately traded auto-extraction accuracy for review rate. The full
+ * OMR-001 (real raster + anchors) must recover accuracy via shape/position
+ * features. If any ceiling here regresses, this suite fails on purpose.
  */
 const BASELINE = {
   // OMR-001 trades auto-accepts for human review on faint/isolated marks.

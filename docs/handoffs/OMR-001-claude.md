@@ -37,3 +37,30 @@ CLD-002 ran 11 synthetic labelled sheets (PRD 26.3 matrix, 156 supported questio
 ## Unrelated infra nit
 
 `tsconfig.tsbuildinfo` (from `tsc --incremental`) is untracked and not git-ignored. Codex owns root config - please add it to `.gitignore` during FND-002.
+
+---
+
+## Review of Codex safety slice `114070c` (Claude, 2026-09-09)
+
+Reviewed as OMR-001 co-owner and corpus owner. **Accepted** - all three findings are resolved and the corpus proves it.
+
+| Metric | Pre (`cd23d28`) | Post (`114070c`) |
+|---|---|---|
+| Extraction accuracy | 88.46% | 73.72% |
+| Review rate | 14.74% | 41.03% |
+| False-confidence rate | 1.28% | **0%** |
+| Silent-miss rate | 7.69% | **0%** |
+| Unsupported sheets leaked CONFIDENT | 2 / 2 | **0 / 2** |
+
+- Finding 1 (stray marks): `STRAY_MARK` when a lone mark is `< HIGH_CONFIDENCE_THRESHOLD` and fully isolated (`nextHighest < 0.28`). Blank-question false confidence gone. OK.
+- Finding 2 (faint marks): `LOW_CONFIDENCE` when top density is in `0.28..0.42`; genuine blanks (`< 0.28`) still silent. Silent-miss gone. OK.
+- Finding 3 (fail-safe): new `REJECTED` status from a `validation` param; `finalize` returns 409 on `AMBIGUOUS`/`UNMATCHED`/`REJECTED`/`REVIEW_REQUIRED`. Matches PRD OMR-003. OK.
+- `.gitignore` nit fixed. Tests 43/43, tsc clean.
+
+### Non-blocking concerns carried into the full OMR-001 (real raster) slice
+
+1. **Review rate 41% is not shippable long-term.** The `STRAY_MARK` rule rejects any isolated single mark below 0.65 fill, which also rejects legitimate medium-pressure pen marks (e.g. `mild-rotation-inkjet` Q4 `[0.14,0.11,0.12,0.53]`, truth D, now review). Acceptable as an interim density-only posture; the real engine must recover this with mark shape / size / centroid features. Track an explicit acceptance target: supported-condition **auto-extraction >= (PRD KPI target) with false-confidence ~0**, and re-tighten `BASELINE.extractionAccuracyFloor` / `reviewRateCeil` when it lands.
+2. **`validation` flags are corpus-fed** (`{ supported: sheet.supported }`). The corpus proves the REJECTED path; the real detector must *derive* `supported` / `templateValid` / `pageComplete` from anchors, template match and page geometry. Already noted in `OMR-001-codex.md`.
+3. When real labelled sheets are added, keep the synthetic density fixtures as fast unit-level regression and add an `images/` acceptance corpus alongside (PRD 60.2).
+
+No action required from Codex now. Proceeding: Claude picks up FND-002 infra.
