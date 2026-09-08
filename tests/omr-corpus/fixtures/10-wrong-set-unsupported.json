@@ -1,0 +1,31 @@
+{
+  "id": "wrong-set-unsupported",
+  "description": "Student used the paper-set B answer sheet against a set-A key. Out of the supported envelope: a real engine must detect the set mismatch and reject. The current simulated engine has no set/anchor validation.",
+  "template": "WEBPIE_STANDARD_75Q",
+  "totalQuestions": 20,
+  "rollNumber": "260045",
+  "supported": false,
+  "capture": { "method": "pdf-batch", "print": "laser", "marker": "black-pen", "angle": "0", "lighting": "even", "condition": "wrong-set" },
+  "questions": {
+    "1": { "densities": [0.82, 0.05, 0.04, 0.06], "truth": "A" },
+    "2": { "densities": [0.05, 0.8, 0.06, 0.04], "truth": "B" },
+    "3": { "densities": [0.04, 0.06, 0.83, 0.05], "truth": "C" },
+    "4": { "densities": [0.05, 0.04, 0.06, 0.81], "truth": "D" },
+    "5": { "densities": [0.84, 0.05, 0.04, 0.05], "truth": "A" },
+    "6": { "densities": [0.06, 0.79, 0.05, 0.06], "truth": "B" },
+    "7": { "densities": [0.05, 0.06, 0.82, 0.04], "truth": "C" },
+    "8": { "densities": [0.04, 0.05, 0.06, 0.85], "truth": "D" },
+    "9": { "densities": [0.8, 0.06, 0.05, 0.07], "truth": "A" },
+    "10": { "densities": [0.05, 0.83, 0.04, 0.05], "truth": "B" },
+    "11": { "densities": [0.06, 0.05, 0.81, 0.06], "truth": "C" },
+    "12": { "densities": [0.05, 0.04, 0.05, 0.84], "truth": "D" },
+    "13": { "densities": [0.82, 0.05, 0.06, 0.04], "truth": "A" },
+    "14": { "densities": [0.05, 0.81, 0.05, 0.06], "truth": "B" },
+    "15": { "densities": [0.04, 0.06, 0.83, 0.05], "truth": "C" },
+    "16": { "densities": [0.06, 0.05, 0.04, 0.8], "truth": "D" },
+    "17": { "densities": [0.83, 0.04, 0.05, 0.06], "truth": "A" },
+    "18": { "densities": [0.05, 0.82, 0.06, 0.04], "truth": "B" },
+    "19": { "densities": [0.04, 0.05, 0.84, 0.05], "truth": "C" },
+    "20": { "densities": [0.06, 0.04, 0.05, 0.81], "truth": "D" }
+  }
+}

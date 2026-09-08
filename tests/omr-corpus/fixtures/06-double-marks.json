@@ -1,0 +1,27 @@
+{
+  "id": "double-marks",
+  "description": "Genuine double and triple marks. The safe outcome for each is no auto-accepted option plus a review flag.",
+  "template": "WEBPIE_STANDARD_75Q",
+  "totalQuestions": 16,
+  "rollNumber": "260006",
+  "supported": true,
+  "capture": { "method": "flatbed", "print": "laser", "marker": "blue-pen", "angle": "0", "lighting": "even", "condition": "double-mark" },
+  "questions": {
+    "1": { "densities": [0.82, 0.05, 0.04, 0.03], "truth": "A" },
+    "2": { "densities": [0.7, 0.04, 0.68, 0.05], "truth": "REVIEW", "truthReason": "DOUBLE_MARK" },
+    "3": { "densities": [0.04, 0.85, 0.03, 0.05], "truth": "B" },
+    "4": { "densities": [0.05, 0.66, 0.63, 0.04], "truth": "REVIEW", "truthReason": "DOUBLE_MARK" },
+    "5": { "densities": [0.72, 0.06, 0.05, 0.7], "truth": "REVIEW", "truthReason": "DOUBLE_MARK" },
+    "6": { "densities": [0.03, 0.05, 0.88, 0.04], "truth": "C" },
+    "7": { "densities": [0.6, 0.58, 0.05, 0.06], "truth": "REVIEW", "truthReason": "DOUBLE_MARK" },
+    "8": { "densities": [0.05, 0.04, 0.03, 0.83], "truth": "D" },
+    "9": { "densities": [0.05, 0.64, 0.06, 0.67], "truth": "REVIEW", "truthReason": "DOUBLE_MARK" },
+    "10": { "densities": [0.8, 0.06, 0.04, 0.05], "truth": "A" },
+    "11": { "densities": [0.55, 0.05, 0.52, 0.58], "truth": "REVIEW", "truthReason": "DOUBLE_MARK", "note": "triple mark" },
+    "12": { "densities": [0.04, 0.79, 0.05, 0.03], "truth": "B" },
+    "13": { "densities": [0.68, 0.71, 0.04, 0.05], "truth": "REVIEW", "truthReason": "DOUBLE_MARK" },
+    "14": { "densities": [0.04, 0.03, 0.05, 0.04], "truth": null },
+    "15": { "densities": [0.05, 0.04, 0.81, 0.06], "truth": "C" },
+    "16": { "densities": [0.03, 0.06, 0.04, 0.77], "truth": "D" }
+  }
+}

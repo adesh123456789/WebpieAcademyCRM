@@ -1,0 +1,23 @@
+{
+  "id": "cropped-edge-unsupported",
+  "description": "Phone photo cut off the bottom rows of the sheet. Out of the supported envelope: anchor detection must fail and route the sheet to review. The current simulated engine reads the missing rows as blank and finalizes anyway.",
+  "template": "WEBPIE_STANDARD_75Q",
+  "totalQuestions": 12,
+  "rollNumber": "260046",
+  "supported": false,
+  "capture": { "method": "phone", "print": "laser", "marker": "blue-pen", "angle": "perspective", "lighting": "mild-shadow", "condition": "cropped-edge" },
+  "questions": {
+    "1": { "densities": [0.84, 0.04, 0.03, 0.05], "truth": "A" },
+    "2": { "densities": [0.05, 0.86, 0.04, 0.03], "truth": "B" },
+    "3": { "densities": [0.03, 0.05, 0.83, 0.04], "truth": "C" },
+    "4": { "densities": [0.04, 0.03, 0.05, 0.88], "truth": "D" },
+    "5": { "densities": [0.85, 0.05, 0.03, 0.04], "truth": "A" },
+    "6": { "densities": [0.04, 0.82, 0.05, 0.06], "truth": "B" },
+    "7": { "densities": [0.05, 0.04, 0.87, 0.03], "truth": "C" },
+    "8": { "densities": [0.03, 0.06, 0.04, 0.84], "truth": "D" },
+    "9": { "densities": [0.0, 0.0, 0.0, 0.0], "truth": "A", "note": "row lost to cropped edge" },
+    "10": { "densities": [0.0, 0.0, 0.0, 0.0], "truth": "B", "note": "row lost to cropped edge" },
+    "11": { "densities": [0.0, 0.0, 0.0, 0.0], "truth": "C", "note": "row lost to cropped edge" },
+    "12": { "densities": [0.0, 0.0, 0.0, 0.0], "truth": "D", "note": "row lost to cropped edge" }
+  }
+}

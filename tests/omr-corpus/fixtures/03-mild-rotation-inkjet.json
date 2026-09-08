@@ -1,0 +1,29 @@
+{
+  "id": "mild-rotation-inkjet",
+  "description": "Slight page skew, inkjet print, mild shadow. Medium fills, low-noise background.",
+  "template": "WEBPIE_STANDARD_75Q",
+  "totalQuestions": 18,
+  "rollNumber": "260003",
+  "supported": true,
+  "capture": { "method": "flatbed", "print": "inkjet", "marker": "blue-pen", "angle": "mild-rotation", "lighting": "mild-shadow", "condition": "clean" },
+  "questions": {
+    "1": { "densities": [0.58, 0.14, 0.1, 0.12], "truth": "A" },
+    "2": { "densities": [0.12, 0.55, 0.16, 0.09], "truth": "B" },
+    "3": { "densities": [0.1, 0.13, 0.62, 0.15], "truth": "C" },
+    "4": { "densities": [0.14, 0.11, 0.12, 0.53], "truth": "D" },
+    "5": { "densities": [0.5, 0.19, 0.14, 0.1], "truth": "A" },
+    "6": { "densities": [0.12, 0.1, 0.14, 0.11], "truth": null },
+    "7": { "densities": [0.16, 0.6, 0.12, 0.13], "truth": "B" },
+    "8": { "densities": [0.11, 0.15, 0.57, 0.18], "truth": "C" },
+    "9": { "densities": [0.13, 0.12, 0.1, 0.64], "truth": "D" },
+    "10": { "densities": [0.66, 0.13, 0.15, 0.11], "truth": "A" },
+    "11": { "densities": [0.1, 0.52, 0.17, 0.14], "truth": "B" },
+    "12": { "densities": [0.14, 0.11, 0.59, 0.12], "truth": "C" },
+    "13": { "densities": [0.12, 0.16, 0.13, 0.55], "truth": "D" },
+    "14": { "densities": [0.1, 0.13, 0.09, 0.12], "truth": null },
+    "15": { "densities": [0.61, 0.12, 0.14, 0.16], "truth": "A" },
+    "16": { "densities": [0.15, 0.58, 0.11, 0.13], "truth": "B" },
+    "17": { "densities": [0.13, 0.1, 0.54, 0.15], "truth": "C" },
+    "18": { "densities": [0.11, 0.14, 0.12, 0.63], "truth": "D" }
+  }
+}

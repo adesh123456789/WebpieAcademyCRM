@@ -1,0 +1,27 @@
+{
+  "id": "clean-phone-blackpen",
+  "description": "Phone camera capture, even light, black pen, all answers clean. Lighter fills than flatbed.",
+  "template": "WEBPIE_STANDARD_75Q",
+  "totalQuestions": 16,
+  "rollNumber": "260002",
+  "supported": true,
+  "capture": { "method": "phone", "print": "laser", "marker": "black-pen", "angle": "0", "lighting": "even", "condition": "clean" },
+  "questions": {
+    "1": { "densities": [0.76, 0.08, 0.06, 0.05], "truth": "A" },
+    "2": { "densities": [0.07, 0.74, 0.09, 0.06], "truth": "B" },
+    "3": { "densities": [0.05, 0.08, 0.78, 0.07], "truth": "C" },
+    "4": { "densities": [0.06, 0.05, 0.08, 0.72], "truth": "D" },
+    "5": { "densities": [0.06, 0.05, 0.07, 0.04], "truth": null },
+    "6": { "densities": [0.8, 0.1, 0.06, 0.08], "truth": "A" },
+    "7": { "densities": [0.09, 0.71, 0.07, 0.05], "truth": "B" },
+    "8": { "densities": [0.06, 0.09, 0.75, 0.1], "truth": "C" },
+    "9": { "densities": [0.08, 0.06, 0.05, 0.77], "truth": "D" },
+    "10": { "densities": [0.73, 0.11, 0.09, 0.07], "truth": "A" },
+    "11": { "densities": [0.1, 0.79, 0.08, 0.06], "truth": "B" },
+    "12": { "densities": [0.07, 0.06, 0.72, 0.09], "truth": "C" },
+    "13": { "densities": [0.05, 0.06, 0.04, 0.07], "truth": null },
+    "14": { "densities": [0.09, 0.08, 0.07, 0.76], "truth": "D" },
+    "15": { "densities": [0.78, 0.07, 0.1, 0.06], "truth": "A" },
+    "16": { "densities": [0.06, 0.8, 0.05, 0.09], "truth": "B" }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "light-pencil-marks",
+  "description": "Light pencil fills. Several intended answers sit just below the 0.42 fill threshold. Surfaces silent drops that are never queued for review.",
+  "template": "WEBPIE_STANDARD_75Q",
+  "totalQuestions": 18,
+  "rollNumber": "260005",
+  "supported": true,
+  "capture": { "method": "flatbed", "print": "laser", "marker": "pencil", "angle": "0", "lighting": "even", "condition": "light-marks" },
+  "questions": {
+    "1": { "densities": [0.38, 0.06, 0.05, 0.04], "truth": "A", "note": "faint pencil, below fill threshold" },
+    "2": { "densities": [0.05, 0.4, 0.06, 0.03], "truth": "B" },
+    "3": { "densities": [0.04, 0.05, 0.36, 0.05], "truth": "C" },
+    "4": { "densities": [0.06, 0.04, 0.05, 0.41], "truth": "D" },
+    "5": { "densities": [0.55, 0.06, 0.05, 0.07], "truth": "A", "note": "pressed harder, reads fine" },
+    "6": { "densities": [0.05, 0.58, 0.04, 0.06], "truth": "B" },
+    "7": { "densities": [0.07, 0.05, 0.34, 0.04], "truth": "C" },
+    "8": { "densities": [0.05, 0.06, 0.04, 0.39], "truth": "D" },
+    "9": { "densities": [0.05, 0.04, 0.06, 0.03], "truth": null },
+    "10": { "densities": [0.6, 0.05, 0.07, 0.04], "truth": "A" },
+    "11": { "densities": [0.06, 0.37, 0.05, 0.06], "truth": "B" },
+    "12": { "densities": [0.04, 0.06, 0.52, 0.05], "truth": "C" },
+    "13": { "densities": [0.05, 0.05, 0.06, 0.4], "truth": "D" },
+    "14": { "densities": [0.35, 0.07, 0.04, 0.05], "truth": "A" },
+    "15": { "densities": [0.06, 0.62, 0.05, 0.04], "truth": "B" },
+    "16": { "densities": [0.04, 0.05, 0.03, 0.06], "truth": null },
+    "17": { "densities": [0.05, 0.04, 0.38, 0.06], "truth": "C" },
+    "18": { "densities": [0.07, 0.05, 0.06, 0.56], "truth": "D" }
+  }
+}

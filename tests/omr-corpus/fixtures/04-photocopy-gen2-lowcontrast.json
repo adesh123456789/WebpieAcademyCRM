@@ -1,0 +1,31 @@
+{
+  "id": "photocopy-gen2-lowcontrast",
+  "description": "2nd-generation photocopy, low contrast, PDF batch. Speckle lifts empty-bubble density; some speckle crosses the fill threshold.",
+  "template": "WEBPIE_STANDARD_75Q",
+  "totalQuestions": 20,
+  "rollNumber": "260004",
+  "supported": true,
+  "capture": { "method": "pdf-batch", "print": "photocopy-gen2", "marker": "black-pen", "angle": "0", "lighting": "low-contrast", "condition": "photocopy-speckle" },
+  "questions": {
+    "1": { "densities": [0.6, 0.28, 0.24, 0.22], "truth": "A" },
+    "2": { "densities": [0.3, 0.52, 0.26, 0.24], "truth": "B" },
+    "3": { "densities": [0.26, 0.3, 0.46, 0.28], "truth": "C" },
+    "4": { "densities": [0.24, 0.28, 0.3, 0.44], "truth": "D", "note": "faint fill + speckle -> engine flags PARTIAL_FILL but keeps the option" },
+    "5": { "densities": [0.45, 0.32, 0.22, 0.2], "truth": "A" },
+    "6": { "densities": [0.28, 0.48, 0.34, 0.24], "truth": "B" },
+    "7": { "densities": [0.3, 0.26, 0.28, 0.24], "truth": null },
+    "8": { "densities": [0.22, 0.24, 0.58, 0.26], "truth": "C" },
+    "9": { "densities": [0.25, 0.28, 0.24, 0.55], "truth": "D" },
+    "10": { "densities": [0.5, 0.44, 0.22, 0.2], "truth": "A", "note": "speckle lifted option B over threshold -> engine defers as double mark" },
+    "11": { "densities": [0.24, 0.62, 0.28, 0.3], "truth": "B" },
+    "12": { "densities": [0.3, 0.26, 0.47, 0.33], "truth": "C" },
+    "13": { "densities": [0.28, 0.24, 0.26, 0.5], "truth": "D" },
+    "14": { "densities": [0.46, 0.3, 0.28, 0.32], "truth": "A" },
+    "15": { "densities": [0.26, 0.3, 0.24, 0.28], "truth": null },
+    "16": { "densities": [0.32, 0.44, 0.43, 0.22], "truth": "B", "note": "speckle lifted option C -> engine defers as double mark" },
+    "17": { "densities": [0.22, 0.26, 0.6, 0.24], "truth": "C" },
+    "18": { "densities": [0.24, 0.22, 0.28, 0.53], "truth": "D" },
+    "19": { "densities": [0.55, 0.26, 0.3, 0.28], "truth": "A" },
+    "20": { "densities": [0.28, 0.49, 0.32, 0.26], "truth": "B" }
+  }
+}

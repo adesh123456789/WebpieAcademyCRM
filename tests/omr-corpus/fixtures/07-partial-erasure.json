@@ -1,0 +1,27 @@
+{
+  "id": "partial-erasure",
+  "description": "Answers erased and re-marked. Ghost marks near the threshold. Bad erasures are genuinely ambiguous; over-erased answers drop silently.",
+  "template": "WEBPIE_STANDARD_75Q",
+  "totalQuestions": 16,
+  "rollNumber": "260007",
+  "supported": true,
+  "capture": { "method": "flatbed", "print": "laser", "marker": "pencil", "angle": "0", "lighting": "even", "condition": "erasure" },
+  "questions": {
+    "1": { "densities": [0.46, 0.34, 0.05, 0.04], "truth": "A", "note": "A re-marked, B ghost from erase" },
+    "2": { "densities": [0.3, 0.47, 0.33, 0.05], "truth": "B" },
+    "3": { "densities": [0.6, 0.5, 0.05, 0.06], "truth": "REVIEW", "truthReason": "DOUBLE_MARK", "note": "poor erasure, both still dark" },
+    "4": { "densities": [0.05, 0.32, 0.48, 0.3], "truth": "C" },
+    "5": { "densities": [0.44, 0.31, 0.06, 0.05], "truth": "A" },
+    "6": { "densities": [0.06, 0.05, 0.07, 0.04], "truth": null },
+    "7": { "densities": [0.05, 0.28, 0.06, 0.45], "truth": "D" },
+    "8": { "densities": [0.05, 0.55, 0.58, 0.04], "truth": "REVIEW", "truthReason": "DOUBLE_MARK" },
+    "9": { "densities": [0.1, 0.33, 0.08, 0.05], "truth": "B", "note": "original A erased, B re-mark too faint to read" },
+    "10": { "densities": [0.62, 0.07, 0.05, 0.06], "truth": "A" },
+    "11": { "densities": [0.3, 0.06, 0.46, 0.33], "truth": "C" },
+    "12": { "densities": [0.52, 0.05, 0.06, 0.54], "truth": "REVIEW", "truthReason": "DOUBLE_MARK" },
+    "13": { "densities": [0.36, 0.09, 0.05, 0.07], "truth": "A", "note": "over-erased, re-mark below threshold" },
+    "14": { "densities": [0.07, 0.6, 0.06, 0.05], "truth": "B" },
+    "15": { "densities": [0.05, 0.31, 0.07, 0.47], "truth": "D" },
+    "16": { "densities": [0.06, 0.05, 0.58, 0.3], "truth": "C" }
+  }
+}

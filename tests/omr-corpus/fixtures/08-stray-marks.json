@@ -1,0 +1,29 @@
+{
+  "id": "stray-marks",
+  "description": "Clean answers plus stray smudges and dots. Two blank questions carry a smudge over the fill threshold - the engine has no stray-mark rejection so it invents an answer.",
+  "template": "WEBPIE_STANDARD_75Q",
+  "totalQuestions": 18,
+  "rollNumber": "260008",
+  "supported": true,
+  "capture": { "method": "phone", "print": "laser", "marker": "blue-pen", "angle": "0", "lighting": "mild-shadow", "condition": "stray-mark" },
+  "questions": {
+    "1": { "densities": [0.8, 0.16, 0.05, 0.04], "truth": "A" },
+    "2": { "densities": [0.06, 0.78, 0.05, 0.14], "truth": "B" },
+    "3": { "densities": [0.08, 0.05, 0.5, 0.06], "truth": null, "note": "coffee-ring smudge on option C; question is actually blank" },
+    "4": { "densities": [0.05, 0.07, 0.82, 0.1], "truth": "C" },
+    "5": { "densities": [0.06, 0.05, 0.08, 0.76], "truth": "D" },
+    "6": { "densities": [0.79, 0.06, 0.44, 0.05], "truth": "A", "note": "stray pen dot in option C crosses threshold" },
+    "7": { "densities": [0.05, 0.81, 0.06, 0.07], "truth": "B" },
+    "8": { "densities": [0.06, 0.05, 0.07, 0.04], "truth": null },
+    "9": { "densities": [0.09, 0.06, 0.05, 0.74], "truth": "D" },
+    "10": { "densities": [0.77, 0.05, 0.06, 0.08], "truth": "A" },
+    "11": { "densities": [0.05, 0.06, 0.04, 0.46], "truth": null, "note": "stray tick in option D; question is actually blank" },
+    "12": { "densities": [0.07, 0.08, 0.8, 0.05], "truth": "C" },
+    "13": { "densities": [0.06, 0.75, 0.07, 0.15], "truth": "B" },
+    "14": { "densities": [0.05, 0.44, 0.06, 0.78], "truth": "D", "note": "smudge on option B crosses threshold" },
+    "15": { "densities": [0.82, 0.07, 0.05, 0.06], "truth": "A" },
+    "16": { "densities": [0.04, 0.06, 0.79, 0.09], "truth": "C" },
+    "17": { "densities": [0.05, 0.04, 0.06, 0.05], "truth": null },
+    "18": { "densities": [0.08, 0.73, 0.05, 0.06], "truth": "B" }
+  }
+}
