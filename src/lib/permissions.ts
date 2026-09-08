@@ -129,3 +129,23 @@ export const ROLE_NAVIGATION_CONFIG: Record<UserRole, { title: string; subtitle:
     ],
   },
 };
+
+export const API_ROLE_PERMISSIONS: Record<string, UserRole[]> = {
+  admin_tenants: ["WEBPIE_ADMIN"],
+  fees: ["OWNER", "BRANCH_ADMIN", "ACCOUNTANT", "INDIVIDUAL_TEACHER"],
+  crm: ["OWNER", "BRANCH_ADMIN", "COUNSELLOR", "INDIVIDUAL_TEACHER"],
+  omr: ["OWNER", "BRANCH_ADMIN", "TEACHER", "INDIVIDUAL_TEACHER"],
+  exams_manage: ["OWNER", "BRANCH_ADMIN", "TEACHER", "INDIVIDUAL_TEACHER"],
+  website_manage: ["OWNER", "BRANCH_ADMIN", "INDIVIDUAL_TEACHER"],
+  students_manage: ["OWNER", "BRANCH_ADMIN", "TEACHER", "COUNSELLOR", "ACCOUNTANT", "INDIVIDUAL_TEACHER"],
+  attendance_manage: ["OWNER", "BRANCH_ADMIN", "TEACHER", "INDIVIDUAL_TEACHER"],
+  interventions_manage: ["OWNER", "BRANCH_ADMIN", "TEACHER", "INDIVIDUAL_TEACHER"],
+};
+
+export function checkApiPermission(userRole: string, scopeKey: keyof typeof API_ROLE_PERMISSIONS): boolean {
+  if (userRole === "WEBPIE_ADMIN") return true;
+  const allowed = API_ROLE_PERMISSIONS[scopeKey];
+  if (!allowed) return false;
+  return allowed.includes(userRole as UserRole);
+}
+

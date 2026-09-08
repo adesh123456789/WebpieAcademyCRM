@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeterministicOMREngine } from "@/lib/omr/omr-engine";
+import { checkApiPermission } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getSessionContext(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!checkApiPermission(session.role, "omr")) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
 
     const jobs = await prisma.oMRJob.findMany({
       where: { tenantId: session.tenantId },
@@ -27,6 +31,9 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSessionContext(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!checkApiPermission(session.role, "omr")) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
 
     const body = await req.json();
     const { examId, batchId, simulatedSheets } = body;

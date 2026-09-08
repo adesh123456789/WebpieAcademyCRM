@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { InterventionService } from "@/lib/intervention/intervention-service";
+import { checkApiPermission } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getSessionContext(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!checkApiPermission(session.role, "interventions_manage")) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
 
     // Fetch existing active interventions
     const activeInterventions = await prisma.intervention.findMany({
@@ -34,6 +38,9 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSessionContext(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!checkApiPermission(session.role, "interventions_manage")) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
 
     const body = await req.json();
     const { concept, studentIds, priority } = body;

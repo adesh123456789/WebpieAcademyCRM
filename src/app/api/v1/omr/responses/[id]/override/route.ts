@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext, createAuditLog } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkApiPermission } from "@/lib/permissions";
 
 export async function POST(
   req: NextRequest,
@@ -9,6 +10,9 @@ export async function POST(
   try {
     const session = await getSessionContext(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!checkApiPermission(session.role, "omr")) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
 
     const body = await req.json();
     const { questionNumber, newResponse, reason } = body;

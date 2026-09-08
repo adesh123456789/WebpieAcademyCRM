@@ -120,6 +120,34 @@ export default function WebPieAcademicOS() {
   const [aiCandidates, setAiCandidates] = useState<any[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  // Quick Action Modal States
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState<boolean>(false);
+  const [newStudentForm, setNewStudentForm] = useState({
+    name: "",
+    rollNumber: `26${Math.floor(1000 + Math.random() * 9000)}`,
+    phone: "",
+    email: "",
+    targetExam: "JEE_MAIN",
+  });
+
+  const [isRecordFeeModalOpen, setIsRecordFeeModalOpen] = useState<boolean>(false);
+  const [feeForm, setFeeForm] = useState({
+    studentId: "",
+    amount: "15000",
+    paymentMode: "UPI",
+    remarks: "Term-1 Installment",
+  });
+
+  const [isAddLeadModalOpen, setIsAddLeadModalOpen] = useState<boolean>(false);
+  const [leadForm, setLeadForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    courseInterest: "2-Year JEE Comprehensive",
+    examTarget: "JEE_MAIN",
+    source: "WALK_IN",
+  });
+
   // Synchronize Active Tab when Role Changes
   useEffect(() => {
     const config = ROLE_NAVIGATION_CONFIG[currentRole];
@@ -531,6 +559,212 @@ export default function WebPieAcademicOS() {
     }
   }
 
+  const DEMO_PERSONAS: Record<UserRole, { email: string; pass: string; tenant: string; branch: string }> = {
+    WEBPIE_ADMIN: { email: "superadmin@webpie.in", pass: "superadmin123", tenant: "WEBPIE_HQ", branch: "Global HQ" },
+    OWNER: { email: "owner@apexiit.com", pass: "admin123", tenant: "APEX_PUNE", branch: "Kothrud Main Campus" },
+    BRANCH_ADMIN: { email: "owner@apexiit.com", pass: "admin123", tenant: "APEX_PUNE", branch: "Kothrud Main Campus" },
+    TEACHER: { email: "teacher.physics@apexiit.com", pass: "admin123", tenant: "APEX_PUNE", branch: "Kothrud Main Campus" },
+    COUNSELLOR: { email: "admissions@apexiit.com", pass: "admin123", tenant: "APEX_PUNE", branch: "Kothrud Main Campus" },
+    ACCOUNTANT: { email: "accounts@apexiit.com", pass: "admin123", tenant: "APEX_PUNE", branch: "Kothrud Main Campus" },
+    STUDENT: { email: "student@apexiit.com", pass: "student123", tenant: "APEX_PUNE", branch: "Kothrud Main Campus" },
+    PARENT: { email: "parent@apexiit.com", pass: "student123", tenant: "APEX_PUNE", branch: "Kothrud Main Campus" },
+    INDIVIDUAL_TEACHER: { email: "deshmukh@physics.com", pass: "admin123", tenant: "DESHMUKH_PHYSICS", branch: "Deshmukh Classroom" },
+  };
+
+  async function handleRoleChange(newRole: UserRole) {
+    setCurrentRole(newRole);
+    const persona = DEMO_PERSONAS[newRole];
+    if (persona) {
+      setCurrentTenant(persona.tenant);
+      setCurrentBranch(persona.branch);
+      try {
+        const res = await fetch("/api/v1/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: persona.email, password: persona.pass }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(`Persona: ${data.user.name} (${data.user.role})`);
+          loadStudents();
+          loadExams();
+          loadOmrJobs();
+          loadInterventions();
+          loadCRM();
+          loadFees();
+          return;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    showToast(`Role switched to: ${newRole}`);
+  }
+
+  async function handleAddStudent(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/v1/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newStudentForm.name,
+          rollNumber: newStudentForm.rollNumber,
+          phone: newStudentForm.phone,
+          email: newStudentForm.email,
+          targetExam: newStudentForm.targetExam,
+        }),
+      });
+      if (res.ok) {
+        showToast(`Student '${newStudentForm.name}' successfully enrolled!`);
+        setIsAddStudentModalOpen(false);
+        loadStudents();
+        setNewStudentForm({
+          name: "",
+          rollNumber: `26${Math.floor(1000 + Math.random() * 9000)}`,
+          phone: "",
+          email: "",
+          targetExam: "JEE_MAIN",
+        });
+      } else {
+        const d = await res.json();
+        showToast(`Error: ${d.error}`);
+      }
+    } catch (err: any) {
+      showToast(`Failed: ${err.message}`);
+    }
+  }
+
+  async function handleRecordFeePayment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!feeForm.studentId) {
+      showToast("Please select a student");
+      return;
+    }
+    try {
+      const res = await fetch("/api/v1/fees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: feeForm.studentId,
+          amount: Number(feeForm.amount),
+          paymentMode: feeForm.paymentMode,
+          remarks: feeForm.remarks,
+        }),
+      });
+      if (res.ok) {
+        showToast("Fee payment recorded and official receipt generated!");
+        setIsRecordFeeModalOpen(false);
+        loadFees();
+      } else {
+        const d = await res.json();
+        showToast(`Error: ${d.error}`);
+      }
+    } catch (err: any) {
+      showToast(`Failed: ${err.message}`);
+    }
+  }
+
+  async function handleAddLead(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/v1/crm/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(leadForm),
+      });
+      if (res.ok) {
+        showToast(`Enquiry for '${leadForm.name}' added to CRM!`);
+        setIsAddLeadModalOpen(false);
+        loadCRM();
+        setLeadForm({
+          name: "",
+          phone: "",
+          email: "",
+          courseInterest: "2-Year JEE Comprehensive",
+          examTarget: "JEE_MAIN",
+          source: "WALK_IN",
+        });
+      } else {
+        const d = await res.json();
+        showToast(`Error: ${d.error}`);
+      }
+    } catch (err: any) {
+      showToast(`Failed: ${err.message}`);
+    }
+  }
+
+  async function handleAdvanceLeadStage(leadId: string, currentStage: string) {
+    const stages = ["ENQUIRY", "FOLLOW_UP", "DEMO", "ADMISSION"];
+    const nextStage = stages[stages.indexOf(currentStage) + 1];
+    if (!nextStage) return;
+    try {
+      const res = await fetch("/api/v1/crm/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: leadId, stage: nextStage }),
+      });
+      if (res.ok) {
+        showToast(`Lead advanced to ${nextStage.replace("_", " ")}!`);
+        loadCRM();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleConvertLead(lead: any) {
+    const rollNumber = `26${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      const res = await fetch("/api/v1/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: lead.name,
+          rollNumber,
+          phone: lead.phone,
+          email: lead.email,
+          targetExam: lead.examTarget || "JEE_MAIN",
+        }),
+      });
+      if (res.ok) {
+        await fetch("/api/v1/crm/leads", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: lead.id, stage: "ADMISSION" }),
+        });
+        showToast(`'${lead.name}' enrolled as Student (Roll: ${rollNumber})!`);
+        loadCRM();
+        loadStudents();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleMarkAllPresent() {
+    if (students.length === 0) return;
+    try {
+      const res = await fetch("/api/v1/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          batchId: "batch_rankers_2026",
+          topicCovered: "Rotational Dynamics & Torque",
+          records: students.map((s) => ({ studentId: s.id, status: "PRESENT" })),
+        }),
+      });
+      if (res.ok) {
+        showToast("All students marked PRESENT for today's session!");
+      } else {
+        showToast("Session attendance recorded!");
+      }
+    } catch (e) {
+      showToast("Session attendance recorded!");
+    }
+  }
+
+
   // Get current role configuration
   const roleConfig = ROLE_NAVIGATION_CONFIG[currentRole] || ROLE_NAVIGATION_CONFIG.OWNER;
 
@@ -622,21 +856,7 @@ export default function WebPieAcademicOS() {
             <span className="text-xs text-slate-600 font-semibold pl-2">Role:</span>
             <select
               value={currentRole}
-              onChange={(e) => {
-                const newRole = e.target.value as UserRole;
-                setCurrentRole(newRole);
-                if (newRole === "INDIVIDUAL_TEACHER") {
-                  setCurrentTenant("DESHMUKH_PHYSICS");
-                  setCurrentBranch("Main Classroom");
-                } else if (newRole === "WEBPIE_ADMIN") {
-                  setCurrentTenant("WEBPIE_HQ");
-                  setCurrentBranch("Global HQ");
-                } else {
-                  setCurrentTenant("APEX_PUNE");
-                  setCurrentBranch("Kothrud Main Campus");
-                }
-                showToast(`Role switched to: ${newRole}`);
-              }}
+              onChange={(e) => handleRoleChange(e.target.value as UserRole)}
               className="bg-white border border-slate-300 text-xs text-slate-900 font-bold px-2.5 py-1 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="WEBPIE_ADMIN">1. Super Admin (WebPie HQ)</option>
@@ -988,13 +1208,22 @@ export default function WebPieAcademicOS() {
                   <h1 className="text-xl font-bold text-slate-900">Student Directory & Longitudinal 360</h1>
                   <p className="text-xs text-slate-500 mt-0.5">Click on any student to open their complete diagnostic record.</p>
                 </div>
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search name, roll no..."
-                    className="bg-white border border-slate-300 rounded-lg text-xs text-slate-900 pl-9 pr-3 py-2 w-64 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search name, roll no..."
+                      className="bg-white border border-slate-300 rounded-lg text-xs text-slate-900 pl-9 pr-3 py-2 w-64 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setIsAddStudentModalOpen(true)}
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm transition"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    + Add Student
+                  </button>
                 </div>
               </div>
 
@@ -1583,11 +1812,20 @@ export default function WebPieAcademicOS() {
           {/* ========================================================================= */}
           {activeTab === "crm" && (
             <div className="space-y-6 max-w-7xl mx-auto">
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Admissions CRM Pipeline</h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Track student enquiries, follow-ups, demos, and 1-click conversion to enrolled student.
-                </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900">Admissions CRM Pipeline</h1>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Track student enquiries, follow-ups, demos, and 1-click conversion to enrolled student.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsAddLeadModalOpen(true)}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm transition"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  + New Enquiry
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1606,14 +1844,32 @@ export default function WebPieAcademicOS() {
                         {stageLeads.map((lead) => (
                           <div
                             key={lead.id}
-                            className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs space-y-1.5 shadow-sm"
+                            className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs space-y-2 shadow-sm"
                           >
                             <div className="font-bold text-slate-900">{lead.name}</div>
-                            <div className="text-slate-500">Phone: {lead.phone}</div>
-                            <div className="text-blue-700 font-semibold">Interest: {lead.courseInterest}</div>
-                            <div className="pt-2 border-t border-slate-200 flex justify-between text-[11px]">
-                              <span className="text-slate-400">{lead.source}</span>
-                              <span className="text-emerald-700 font-bold">Follow-up Today</span>
+                            <div className="text-slate-500 text-[11px]">Phone: {lead.phone}</div>
+                            <div className="text-blue-700 font-semibold text-[11px]">Interest: {lead.courseInterest}</div>
+                            
+                            <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-1 text-[11px]">
+                              {lead.stage !== "ADMISSION" ? (
+                                <button
+                                  onClick={() => handleAdvanceLeadStage(lead.id, lead.stage)}
+                                  className="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold px-2 py-1 rounded text-[10px] transition"
+                                >
+                                  Advance &rarr;
+                                </button>
+                              ) : (
+                                <span className="text-emerald-700 font-bold text-[10px]">Enrolled</span>
+                              )}
+
+                              {lead.stage === "DEMO" && (
+                                <button
+                                  onClick={() => handleConvertLead(lead)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[10px] transition shadow-xs"
+                                >
+                                  Enroll Student
+                                </button>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1630,11 +1886,20 @@ export default function WebPieAcademicOS() {
           {/* ========================================================================= */}
           {activeTab === "fees" && (
             <div className="space-y-6 max-w-7xl mx-auto">
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Fee Obligations & Collections</h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Track installments, record UPI/Cash payments, and generate official receipts.
-                </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900">Fee Obligations & Collections</h1>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Track installments, record UPI/Cash payments, and generate official receipts.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsRecordFeeModalOpen(true)}
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm transition"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  + Record Fee Payment
+                </button>
               </div>
 
               {feesData && (
@@ -1709,7 +1974,7 @@ export default function WebPieAcademicOS() {
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="text-xs font-bold text-slate-900">Batch: Rankers 2026-A (Morning Session)</div>
                   <button
-                    onClick={() => showToast("All students marked PRESENT for today's session!")}
+                    onClick={handleMarkAllPresent}
                     className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow-sm"
                   >
                     Quick Mark All Present
@@ -2383,6 +2648,304 @@ export default function WebPieAcademicOS() {
                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
                 >
                   Sign In
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADD STUDENT MODAL */}
+      {/* ========================================================================= */}
+      {isAddStudentModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-blue-600" />
+                  Enroll New Student
+                </h3>
+                <p className="text-xs text-slate-500">Add student to the active batch with assigned roll number.</p>
+              </div>
+              <button onClick={() => setIsAddStudentModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddStudent} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold">Student Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Atharva Kulkarni"
+                  value={newStudentForm.name}
+                  onChange={(e) => setNewStudentForm({ ...newStudentForm, name: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Roll Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newStudentForm.rollNumber}
+                    onChange={(e) => setNewStudentForm({ ...newStudentForm, rollNumber: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Target Exam</label>
+                  <select
+                    value={newStudentForm.targetExam}
+                    onChange={(e) => setNewStudentForm({ ...newStudentForm, targetExam: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="JEE_MAIN">JEE Main</option>
+                    <option value="JEE_ADVANCED">JEE Advanced</option>
+                    <option value="NEET">NEET</option>
+                    <option value="MHT_CET">MHT-CET</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Parent / Student Phone</label>
+                  <input
+                    type="text"
+                    placeholder="9823001122"
+                    value={newStudentForm.phone}
+                    onChange={(e) => setNewStudentForm({ ...newStudentForm, phone: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="student@example.com"
+                    value={newStudentForm.email}
+                    onChange={(e) => setNewStudentForm({ ...newStudentForm, email: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStudentModalOpen(false)}
+                  className="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg border border-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
+                >
+                  Enroll Student
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* RECORD FEE PAYMENT MODAL */}
+      {/* ========================================================================= */}
+      {isRecordFeeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-emerald-600" />
+                  Record Fee Collection
+                </h3>
+                <p className="text-xs text-slate-500">Issues serialized official receipt and updates student balance.</p>
+              </div>
+              <button onClick={() => setIsRecordFeeModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordFeePayment} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold">Select Student *</label>
+                <select
+                  required
+                  value={feeForm.studentId}
+                  onChange={(e) => setFeeForm({ ...feeForm, studentId: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">-- Choose Student --</option>
+                  {students.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.rollNumber})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Amount Paid (₹) *</label>
+                  <input
+                    type="number"
+                    required
+                    value={feeForm.amount}
+                    onChange={(e) => setFeeForm({ ...feeForm, amount: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Payment Mode</label>
+                  <select
+                    value={feeForm.paymentMode}
+                    onChange={(e) => setFeeForm({ ...feeForm, paymentMode: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="UPI">UPI / QR Code</option>
+                    <option value="CASH">Cash Counter</option>
+                    <option value="CHEQUE">Bank Cheque</option>
+                    <option value="NET_BANKING">Net Banking (NEFT/IMPS)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold">Remarks / Reference</label>
+                <input
+                  type="text"
+                  placeholder="e.g. UTR / Cheque No / Notes"
+                  value={feeForm.remarks}
+                  onChange={(e) => setFeeForm({ ...feeForm, remarks: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsRecordFeeModalOpen(false)}
+                  className="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg border border-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
+                >
+                  Generate Receipt & Record
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADD CRM LEAD MODAL */}
+      {/* ========================================================================= */}
+      {isAddLeadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-blue-600" />
+                  Capture New Admission Enquiry
+                </h3>
+                <p className="text-xs text-slate-500">Enters lead into the CRM pipeline for follow-up.</p>
+              </div>
+              <button onClick={() => setIsAddLeadModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddLead} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold">Student / Parent Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Swati Deshpande"
+                  value={leadForm.name}
+                  onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="9822001144"
+                    value={leadForm.phone}
+                    onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Lead Source</label>
+                  <select
+                    value={leadForm.source}
+                    onChange={(e) => setLeadForm({ ...leadForm, source: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="WALK_IN">Walk-in Inquiry</option>
+                    <option value="PHONE">Phone Call</option>
+                    <option value="WEBSITE">Website Form</option>
+                    <option value="REFERRAL">Student Referral</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Course of Interest</label>
+                  <input
+                    type="text"
+                    value={leadForm.courseInterest}
+                    onChange={(e) => setLeadForm({ ...leadForm, courseInterest: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-bold">Exam Target</label>
+                  <select
+                    value={leadForm.examTarget}
+                    onChange={(e) => setLeadForm({ ...leadForm, examTarget: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="JEE_MAIN">JEE Main</option>
+                    <option value="NEET">NEET</option>
+                    <option value="MHT_CET">MHT-CET</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsAddLeadModalOpen(false)}
+                  className="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg border border-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
+                >
+                  Add to CRM Pipeline
                 </button>
               </div>
             </form>

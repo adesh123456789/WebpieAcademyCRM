@@ -5,8 +5,8 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   try {
     const session = await getSessionContext(req);
-    // Allow if role is WEBPIE_ADMIN or OWNER
-    if (session && session.role !== "WEBPIE_ADMIN" && session.role !== "OWNER") {
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.role !== "WEBPIE_ADMIN" && session.role !== "OWNER") {
       return NextResponse.json({ error: "Forbidden: Super Admin access required" }, { status: 403 });
     }
 
@@ -54,7 +54,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSessionContext(req);
-    if (session && session.role !== "WEBPIE_ADMIN" && session.role !== "OWNER") {
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.role !== "WEBPIE_ADMIN" && session.role !== "OWNER") {
       return NextResponse.json({ error: "Forbidden: Super Admin access required" }, { status: 403 });
     }
 

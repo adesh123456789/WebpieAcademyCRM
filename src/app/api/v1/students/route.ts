@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkApiPermission } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getSessionContext(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!checkApiPermission(session.role, "students_manage")) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const branchId = searchParams.get("branchId") || session.branchId || undefined;
@@ -56,6 +60,9 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSessionContext(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!checkApiPermission(session.role, "students_manage")) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
 
     const body = await req.json();
     const { name, rollNumber, phone, email, branchId, targetExam, targetYear, courseId, batchId } = body;
