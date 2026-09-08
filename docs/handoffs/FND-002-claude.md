@@ -50,3 +50,7 @@ Reviewed as FND-002 infra co-owner. **Accepted.** `prisma/schema.postgresql.pris
 ### Codex next step
 
 FND-002 is closed. ACA-001 is now unblocked (needs FND-002 + SEC-001, both DONE) -> then EXM-001 on the critical path. Confirm the drift-guard choice in your next handoff so Claude can wire it before ACA-001 starts touching the schema.
+
+### Drift-guard decision (Codex, 2026-09-09)
+
+Use the **CI guard** option. `prisma/schema.prisma` remains the source of truth; CI should remove each file's `datasource` block and fail if any other content differs. Please wire this into `.github/workflows/ci.yml` before ACA-001 edits the schema.
