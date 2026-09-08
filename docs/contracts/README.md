@@ -12,6 +12,7 @@ Before each task, create a task-specific contract with representative JSON fixtu
 | C04 OMR jobs | Codex / Antigravity | Upload acceptance; job/status/review shapes; signed crop URLs; unresolved-review blocker; override revision; retry-safe finalize |
 | C05 Results/mastery | Codex / Antigravity | Cohort snapshot, authoritative revision, concept evidence, insufficient-evidence state and report release policy |
 | C06 Node sync | Codex / future local runtime | Bound node identity; event ID/entity version; cursor/ack/retry/conflict; expiry/revocation and immutable result revision |
+| AI-001 AI Gateway | Claude / Codex + Antigravity | Full spec in `AI-001-ai-gateway.md`. Single gateway path with runtime output schemas; approved-bank / template fallback (no fabricated questions); `AIRequest` provenance; server-side tenant/namespace scope; `AI_CANDIDATE` gating; 20s timeout + async above count 5. Blocking Codex asks: `AIRequest`/`AIFeedback` Prisma models (+ postgres mirror + migration), `selectApprovedBankQuestions` helper, `questions/generate` count validation + new response shape, `tests/ai-gateway.test.ts` path carve-out. |
 
 Every contract records: method/path; request/response example; runtime validation; role and record scope; error code/status and user-safe message; correlation ID; pagination; idempotency and concurrency where applicable; side effects/audit; compatibility and tests.
 
