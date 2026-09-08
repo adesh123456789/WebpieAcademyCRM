@@ -43,7 +43,8 @@ import {
   RefreshCw,
   Laptop,
   Wifi,
-  HardDrive
+  HardDrive,
+  Loader2,
 } from "lucide-react";
 import { UserRole, ROLE_NAVIGATION_CONFIG } from "@/lib/permissions";
 import {
@@ -59,6 +60,8 @@ import {
   AddLeadModal,
   NodeSyncModal,
   PairNodeModal,
+  LoginView,
+  AuthenticatedUser,
   SuperAdminView,
   DashboardView,
   StudentsView,
@@ -77,6 +80,10 @@ import {
 } from "@/components";
 
 export default function WebPieAcademicOS() {
+  // Session & User State (PRD UI-002)
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+
   // Navigation & Role State
   const [currentRole, setCurrentRole] = useState<UserRole>("OWNER");
   const [currentTenant, setCurrentTenant] = useState<string>("APEX_PUNE");
@@ -196,13 +203,15 @@ export default function WebPieAcademicOS() {
   useEffect(() => {
     const config = ROLE_NAVIGATION_CONFIG[currentRole];
     if (config && config.navItems.length > 0) {
-      // Default to first nav item of this role
-      setActiveTab(config.navItems[0].id);
+      const isAllowed = config.navItems.some((item) => item.id === activeTab);
+      if (!isAllowed) {
+        setActiveTab(config.navItems[0].id);
+      }
     }
   }, [currentRole]);
 
-  // Initial Data Load
-  useEffect(() => {
+  // Comprehensive Data Loader for Authenticated Tenant Context
+  function loadAllData() {
     loadStudents();
     loadCurriculum();
     loadQuestions();
@@ -215,7 +224,51 @@ export default function WebPieAcademicOS() {
     loadParentPortal("260001", parentLang);
     loadTenants();
     loadNodes();
+  }
+
+  // Session Verification on Initial Mount (Contract C01)
+  useEffect(() => {
+    async function resolveActiveSession() {
+      setAuthLoading(true);
+      try {
+        const res = await fetch("/api/v1/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setCurrentUser(data.user);
+            setCurrentRole(data.user.role as UserRole);
+            setCurrentTenant(data.user.tenantCode);
+            setCurrentBranch(data.user.branchName || "Main");
+            loadAllData();
+            setAuthLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Session resolution error:", err);
+      }
+      setCurrentUser(null);
+      setAuthLoading(false);
+    }
+
+    resolveActiveSession();
   }, []);
+
+  function handleLogout() {
+    // Clear session cookie
+    document.cookie = "webpie_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    setCurrentUser(null);
+    showToast("Signed out of WebPie session.");
+  }
+
+  function handleLoginSuccess(user: AuthenticatedUser) {
+    setCurrentUser(user);
+    setCurrentRole(user.role);
+    setCurrentTenant(user.tenantCode);
+    setCurrentBranch(user.branchName || "Main");
+    loadAllData();
+    showToast(`Signed in as ${user.name} (${user.role})`);
+  }
 
   const showToast = (msg: string) => {
     setStatusMessage(msg);
@@ -661,10 +714,12 @@ export default function WebPieAcademicOS() {
         return;
       }
 
+      setCurrentUser(data.user);
       setCurrentRole(data.user.role as UserRole);
       setCurrentTenant(data.user.tenantCode);
-      setCurrentBranch(data.user.branchName);
+      setCurrentBranch(data.user.branchName || "Main");
       setIsLoginModalOpen(false);
+      loadAllData();
       showToast(`Signed in as ${data.user.name} (${data.user.role})`);
     } catch (err: any) {
       setLoginForm((prev) => ({ ...prev, error: err.message }));
@@ -684,11 +739,8 @@ export default function WebPieAcademicOS() {
   };
 
   async function handleRoleChange(newRole: UserRole) {
-    setCurrentRole(newRole);
     const persona = DEMO_PERSONAS[newRole];
     if (persona) {
-      setCurrentTenant(persona.tenant);
-      setCurrentBranch(persona.branch);
       try {
         const res = await fetch("/api/v1/auth/login", {
           method: "POST",
@@ -697,20 +749,24 @@ export default function WebPieAcademicOS() {
         });
         if (res.ok) {
           const data = await res.json();
-          showToast(`Persona: ${data.user.name} (${data.user.role})`);
-          loadStudents();
-          loadExams();
-          loadOmrJobs();
-          loadInterventions();
-          loadCRM();
-          loadFees();
+          setCurrentUser(data.user);
+          setCurrentRole(data.user.role as UserRole);
+          setCurrentTenant(data.user.tenantCode);
+          setCurrentBranch(data.user.branchName || persona.branch);
+          loadAllData();
+          showToast(`Switched session to: ${data.user.name} (${data.user.role})`);
           return;
+        } else {
+          const errData = await res.json();
+          showToast(`Switch failed: ${errData.error || "Authentication error"}`);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
+        showToast(`Auth error: ${err.message}`);
       }
+    } else {
+      showToast(`No demo credentials configured for role: ${newRole}`);
     }
-    showToast(`Role switched to: ${newRole}`);
   }
 
   async function handleAddStudent(e: React.FormEvent) {
@@ -877,11 +933,37 @@ export default function WebPieAcademicOS() {
   }
 
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xl shadow-md mb-4 animate-pulse">
+          W
+        </div>
+        <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+          <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+          <span>Verifying Active Session...</span>
+        </div>
+        <p className="text-xs text-slate-500 mt-1 font-medium">
+          Authorizing session against WebPie Academic OS &middot; Contract C01
+        </p>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  const roleNav = ROLE_NAVIGATION_CONFIG[currentRole] || ROLE_NAVIGATION_CONFIG.OWNER;
+  const allowedTabs = roleNav.navItems.map((item) => item.id);
+  const isAuthorizedTab = allowedTabs.includes(activeTab);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       <AppHeader
         currentRole={currentRole}
         currentBranch={currentBranch}
+        currentUser={currentUser}
         nodesCount={nodesList.length}
         statusMessage={statusMessage}
         onOpenNodeSyncModal={() => {
@@ -890,6 +972,7 @@ export default function WebPieAcademicOS() {
         }}
         onChangeRole={handleRoleChange}
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* MAIN CONTAINER */}
@@ -902,6 +985,37 @@ export default function WebPieAcademicOS() {
 
         {/* WORKSPACE VIEW: BRIGHT, PROFESSIONAL, HIGH-DATA-DENSITY */}
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50">
+          {!isAuthorizedTab ? (
+            <div className="max-w-xl mx-auto my-12 p-8 bg-white border border-rose-200 rounded-2xl shadow-lg text-center animate-fadeIn">
+              <div className="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <h2 className="text-base font-bold text-slate-900 mb-1">
+                403 - Access Restricted / Scope Denied
+              </h2>
+              <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+                Your authenticated role <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">{currentRole}</span> is not authorized to access the view <span className="font-mono font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded">{activeTab}</span> in tenant <span className="font-mono text-slate-700">{currentTenant}</span>.
+                Tenant and role boundaries are enforced strictly on the server and client (Contract C01).
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(allowedTabs[0] || "dashboard")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition cursor-pointer"
+                >
+                  Return to Allowed Workspace ({roleNav.navItems[0]?.label || "Home"})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2 rounded-lg border border-slate-300 transition cursor-pointer"
+                >
+                  Switch Account
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           {(activeTab === "superadmin_overview" || activeTab === "superadmin_tenants") && (
             <SuperAdminView
               tenantsList={tenantsList}
@@ -1031,6 +1145,8 @@ export default function WebPieAcademicOS() {
             <StudentRadarView
               onNavigateCbt={() => setActiveTab("cbt")}
             />
+          )}
+            </>
           )}
         </main>
       </div>

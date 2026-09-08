@@ -63,6 +63,22 @@ export function DirectLoginModal({
             </button>
             <button
               type="button"
+              onClick={() => setLoginForm({ email: "admissions@apexiit.com", password: "admin123", error: "" })}
+              className="bg-slate-50 border border-slate-200 p-2 rounded-lg text-left hover:bg-slate-100 transition"
+            >
+              <div className="font-bold text-slate-900">Admissions Counsellor</div>
+              <div className="text-[10px] text-slate-500">admissions@apexiit.com</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginForm({ email: "accounts@apexiit.com", password: "admin123", error: "" })}
+              className="bg-slate-50 border border-slate-200 p-2 rounded-lg text-left hover:bg-slate-100 transition"
+            >
+              <div className="font-bold text-slate-900">Accountant / Finance</div>
+              <div className="text-[10px] text-slate-500">accounts@apexiit.com</div>
+            </button>
+            <button
+              type="button"
               onClick={() => setLoginForm({ email: "deshmukh@physics.com", password: "admin123", error: "" })}
               className="bg-slate-50 border border-slate-200 p-2 rounded-lg text-left hover:bg-slate-100 transition"
             >

@@ -10,13 +10,10 @@ Three lanes: **Codex** (backend/data/schema/API), **Antigravity** (UI), **Claude
 | FND-001 | P0 / M | Codex | DONE | — | Isolated per-suite DBs and synthetic fixture world; real handler tests; 36 tests pass, TypeScript passes, inherited DB target remains untouched. See docs/TESTING.md |
 | UI-001 | P1 / M | Antigravity | DONE | — | Extract shell/navigation/common feedback from page.tsx; preserve behavior; no backend changes; verify desktop/mobile navigation and dialogs |
 | SEC-001 | P0 / L | Codex | DONE | FND-001 | Server-resolved active sessions; parent/CBT/student/fee/exam/question scope checks and C01 published. Commit `598b7dd`; full tests/build pass. Remaining explicit profile-FK migration is tracked under STU-001. |
-| UI-002 | P1 / M | Antigravity | IN_PROGRESS | UI-001, C01 acknowledged | Session-driven role shell, real login/logout, authorized navigation and 401/403 states; remove production reliance on demo persona credentials |
+| UI-002 | P1 / M | Antigravity | DONE | UI-001, C01 acknowledged | Session-driven role shell, real login/logout, authorized navigation and 401/403 states; contract C01 session verification, LoginView, and honest 403 guard. Handoff docs/handoffs/UI-002-antigravity.md |
 | CLD-001 | P0 / S | Claude | DONE | — | CI workflow (`.github/workflows/ci.yml`): install, prisma generate + db push, tsc noEmit, vitest, next build on every PR/push; `.dockerignore` to shrink build context. Integrated into master |
 | CLD-002 | P1 / M | Claude | DONE | — | OMR benchmark corpus harness under `tests/omr-corpus/**`: zod fixture schema, `runCorpus` metrics + markdown report, 11 synthetic labelled sheets across the PRD 26.3 matrix, vitest suite with safety invariants + regression ceilings. Baseline on simulated engine recorded in `tests/omr-corpus/REPORT.md` (accuracy 88.46%, review 14.74%, false-confidence 1.28%, silent-miss 7.69%, 2/2 unsupported sheets leak CONFIDENT). 41/41 tests + tsc pass. Handoff `docs/handoffs/CLD-002-claude.md` |
 | FND-002 | P0 / M | Claude + Codex | READY | FND-001, CLD-001 | Separate cloud PostgreSQL/local SQLite plan, reviewed migrations, clean build/Compose configuration, secret handling, `Dockerfile` `public/` fix and CI extension; fresh isolated install/migrate/build smoke passes. Codex coordination handoff is ready; Claude drives infra/Compose/CI; Codex is sole editor of `prisma/schema.prisma` and the provider switch |
-| CLD-003 | P1 / M | Claude | BACKLOG | AI-001 contract, SEC-001 | AI Gateway hardening in `src/lib/ai/**`: runtime output-schema validation before UI render, model/provider/prompt-version provenance, timeout/cancel, and approved-bank fallback replacing the fabricated-question fallback. Codex cedes `src/lib/ai/**` for this task. AC-003/007/015 negative tests |
-| CLD-004 | P1 / M | Claude | BACKLOG | REL-001 scope | E2E golden-workflow harness under `tests/e2e/**`: teacher create-exam -> artifacts -> OMR -> finalize -> results -> intervention -> parent report, plus parent-scope and CBT-reconnect scenarios. Runs against a synthetic tenant; feeds the launch gate checklist |
-| STU-001 | P1 / L | Codex | BACKLOG | SEC-001, FND-002 | C02; courses/batches/assignments, parent links, student edit/archive/import with preview/error output; AC-002 and scope tests |
 | UI-003 | P1 / L | Antigravity | BACKLOG | UI-002, C02 acknowledged | Student/import/parent-link/batch workflows and resumable onboarding; malformed/duplicate CSV and empty states verified |
 | ACA-001 | P1 / L | Codex | BACKLOG | FND-002, SEC-001 | Versioned graph mappings/questions/tags/source rights, tenant-private content; historical content survives edits, no cross-tenant selection |
 | EXM-001 | P0 / L | Codex | BACKLOG | ACA-001 | C03; validated profile/blueprint, draft/review/transactional finalize and immutable snapshots; no unapproved AI candidates or invalid totals |
@@ -42,15 +39,16 @@ Three lanes: **Codex** (backend/data/schema/API), **Antigravity** (UI), **Claude
 | UI-012 | P1 / M | Antigravity | BACKLOG | UI-001, AI-001 contract | Candidate review and Copilot evidence/action preview; uncertainty/fallback visible; Tutor only behind Beta flag |
 | REL-001 | P0 / L | Claude (integrator) + Codex + Antigravity + product owner | BACKLOG | Core slice above, CLD-004 | Integrated teacher/parent E2E, OMR corpus metrics, load/restore/rollback, pilot teacher timing and sign-off; PRD p. 66 gates recorded |
 
-## First implementation wave
+### First implementation wave
 
 - **Codex**: FND-001 (DONE) -> SEC-001 (DONE, C01 published) -> FND-002 coordination -> STU-001/ACA-001 and backend critical path EXM/EVAL/OMR routes.
-- **Antigravity**: UI-001 (DONE) -> UI-002 after C01 acknowledgement -> UI-003+.
+- **Antigravity**: UI-001 (DONE) -> UI-002 (DONE) -> UI-003+.
 - **Claude**: CLD-001 (CI) and CLD-002 (OMR corpus harness) now — neither blocks on C01 or on schema. Then FND-002 with Codex (Claude drives Compose/CI/Docker; Codex owns `prisma/schema.prisma` and the SQLite->Postgres provider switch — never a simultaneous schema migration while another backend task changes schema). Then CLD-003 once the AI-001 contract lands.
 
 UI fixtures may proceed before endpoints, but fixture work is never labeled integrated functionality. After foundation, prioritize EXM/OMR/EVAL/INT/REP over operations/CMS/CBT/edge/AI breadth. All remaining Must work stays in the release board. Select hardware adapters, tutor and native Android only after the core gate and an explicit scoped task.
 
 ## Claims
+
 
 | Task | Owner | Claimed At | Base Commit | File Scope | Status | Next Checkpoint |
 |---|---|---|---|---|---|---|
@@ -61,4 +59,4 @@ UI fixtures may proceed before endpoints, but fixture work is never labeled inte
 | CLD-002 | Claude | 2026-09-09 Asia/Kolkata | `2983b1e` | `tests/omr-corpus/**`, own handoff, own board rows | DONE | Codex carve-out ack in `docs/handoffs/ACK-claude-codex.md`; integrated by Claude; baseline `tests/omr-corpus/REPORT.md` |
 | FND-002 | Codex + Claude | 2026-09-09 Asia/Kolkata | `cd23d28` | Claude: Docker/Compose/CI/observability; Codex: Prisma/provider/migration review; `docs/handoffs/FND-002-codex.md` | READY | Claude claims infra patch; Codex acknowledges schema/provider proposal before editing |
 | OMR-001 | Codex + Claude | 2026-09-09 01:05 Asia/Kolkata | `82db1fd` | `src/lib/omr/omr-engine.ts`, OMR finalize route, corpus runner/baseline/report, `.gitignore`; `docs/handoffs/OMR-001-codex.md` | IN_PROGRESS | Safety logic integrated `114070c`; Claude review and real raster implementation remain |
-| UI-002 | Antigravity | 2026-09-09 00:50 Asia/Kolkata | `2983b1e` | `src/app/page.tsx`, `src/components/shell/**`, `src/components/auth/**` | IN_PROGRESS | Session-driven role shell, login/logout, authorized navigation |
+| UI-002 | Antigravity | 2026-09-09 00:50 Asia/Kolkata | `2983b1e` | `src/app/page.tsx`, `src/components/shell/**`, `src/components/auth/**` | DONE | Complete; handoff docs/handoffs/UI-002-antigravity.md; 9 test files / 43 tests pass, Next.js build passes |

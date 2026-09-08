@@ -1,27 +1,32 @@
 "use client";
 
 import React from "react";
-import { Building2, UserCheck, CheckCircle2 } from "lucide-react";
+import { Building2, UserCheck, CheckCircle2, LogOut, User as UserIcon } from "lucide-react";
 import { UserRole } from "@/lib/permissions";
+import { AuthenticatedUser } from "@/components/auth/LoginView";
 
 interface AppHeaderProps {
   currentRole: UserRole;
   currentBranch: string;
+  currentUser?: AuthenticatedUser | null;
   nodesCount: number;
   statusMessage: string | null;
   onOpenNodeSyncModal: () => void;
   onChangeRole: (newRole: UserRole) => void;
   onOpenLoginModal: () => void;
+  onLogout: () => void;
 }
 
 export function AppHeader({
   currentRole,
   currentBranch,
+  currentUser,
   nodesCount,
   statusMessage,
   onOpenNodeSyncModal,
   onChangeRole,
   onOpenLoginModal,
+  onLogout,
 }: AppHeaderProps) {
   return (
     <>
@@ -49,11 +54,12 @@ export function AppHeader({
                 </span>
               </div>
               <div className="text-[11px] text-slate-500 font-medium">
-                {currentRole === "WEBPIE_ADMIN"
-                  ? "Global Platform Operations"
-                  : currentRole === "INDIVIDUAL_TEACHER"
-                  ? "Prof. Deshmukh Physics (Independent Mode)"
-                  : "Apex IIT-JEE & NEET Academy, Pune"}
+                {currentUser?.tenantName ||
+                  (currentRole === "WEBPIE_ADMIN"
+                    ? "Global Platform Operations"
+                    : currentRole === "INDIVIDUAL_TEACHER"
+                    ? "Prof. Deshmukh Physics (Independent Mode)"
+                    : "Apex IIT-JEE & NEET Academy, Pune")}
               </div>
             </div>
           </div>
@@ -63,11 +69,11 @@ export function AppHeader({
           {/* Context Badge */}
           <div className="hidden lg:flex items-center gap-2 text-xs bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md text-slate-700 font-medium">
             <Building2 className="w-3.5 h-3.5 text-blue-600" />
-            <span>{currentBranch}</span>
+            <span>{currentUser?.branchName || currentBranch}</span>
           </div>
         </div>
 
-        {/* Global Controls & 9-Role Switcher */}
+        {/* Global Controls & Authenticated User Context */}
         <div className="flex items-center gap-3">
           {/* Node Health / Fleet Trigger */}
           <button
@@ -83,13 +89,31 @@ export function AppHeader({
             </span>
           </button>
 
-          {/* Quick Role Switcher for Seamless Testing of All 9 Personas */}
+          {/* Authenticated User Capsule */}
+          {currentUser && (
+            <div className="hidden xl:flex items-center gap-2 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+              <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px]">
+                {currentUser.name.charAt(0)}
+              </div>
+              <div className="leading-none">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  {currentUser.name}
+                  <span className="text-[9px] bg-slate-200 text-slate-700 px-1 py-0.5 rounded font-mono font-bold uppercase">
+                    {currentUser.role}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono mt-0.5">{currentUser.email}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Role Re-Auth Selector for Seamless Testing */}
           <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 p-1 rounded-lg">
             <span className="text-xs text-slate-600 font-semibold pl-2">Role:</span>
             <select
               value={currentRole}
               onChange={(e) => onChangeRole(e.target.value as UserRole)}
-              className="bg-white border border-slate-300 text-xs text-slate-900 font-bold px-2.5 py-1 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="bg-white border border-slate-300 text-xs text-slate-900 font-bold px-2.5 py-1 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             >
               <option value="WEBPIE_ADMIN">1. Super Admin (WebPie HQ)</option>
               <option value="OWNER">2. Institute Owner</option>
@@ -106,10 +130,21 @@ export function AppHeader({
           {/* Direct Login Modal Trigger */}
           <button
             onClick={onOpenLoginModal}
-            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm transition"
+            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm transition cursor-pointer"
           >
             <UserCheck className="w-3.5 h-3.5" />
-            Switch Account
+            <span className="hidden sm:inline">Switch Account</span>
+          </button>
+
+          {/* Real Session Logout */}
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition cursor-pointer shadow-2xs active:scale-95"
+            title="Sign out of current authenticated session"
+          >
+            <LogOut className="w-3.5 h-3.5 text-rose-600" />
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </header>
