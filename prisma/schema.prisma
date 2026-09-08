@@ -41,6 +41,7 @@ model Tenant {
   websiteSections WebsiteSection[]
   interventions   Intervention[]
   auditLogs       AuditLog[]
+  academicNodes   AcademicNode[]
 }
 
 model Branch {
@@ -60,6 +61,7 @@ model Branch {
   batches     Batch[]
   students    Student[]
   leads       CRMLead[]
+  academicNodes AcademicNode[]
 
   @@unique([tenantId, code])
 }
@@ -576,3 +578,49 @@ model CBTAttempt {
   markedForReview      String    @default("[]") // JSON array of question IDs
   timeSpentPerQuestion String    @default("{}") // JSON: {"q1": 45, "q2": 120} in seconds
 }
+
+// -------------------------------------------------------------
+// WINDOWS ACADEMIC NODE & OFFLINE SYNC (PRD Sec 33, 34, 35)
+// -------------------------------------------------------------
+
+model AcademicNode {
+  id                 String          @id @default(uuid())
+  tenantId           String
+  tenant             Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId           String?
+  branch             Branch?         @relation(fields: [branchId], references: [id])
+  nodeCode           String          // e.g. "PUNE-CAMPUS-NODE-01"
+  name               String          // "Pune Campus Windows Terminal 1"
+  machineFingerprint String          // Hardware UUID / MAC / OS ID
+  ipAddress          String?         // Local LAN IP (e.g. 192.168.1.45)
+  osVersion          String?         // "Windows 11 Pro 64-bit"
+  pairingToken       String          @unique // Handshake secret
+  tokenExpiresAt     DateTime?
+  status             String          @default("OFFLINE") // "ONLINE" | "OFFLINE" | "SYNCING"
+  lastSeenAt         DateTime?
+  lastSyncAt         DateTime?
+  syncEngineState    String?         @default("IDLE") // "IDLE" | "PULLING" | "PUSHING"
+  offlineScansCount  Int             @default(0)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  syncQueueItems     SyncQueueItem[]
+
+  @@unique([tenantId, nodeCode])
+}
+
+model SyncQueueItem {
+  id         String        @id @default(uuid())
+  nodeId     String
+  node       AcademicNode  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  direction  String        // "PUSH" (node to cloud) | "PULL" (cloud to node)
+  entityType String        // "OMR_SCAN" | "EXAM_RESULT" | "ATTENDANCE" | "STUDENT_ENROLLMENT" | "EXAM_BLUEPRINT"
+  entityId   String?
+  payload    String        // Encrypted / JSON serialized delta
+  state      String        @default("PENDING") // "PENDING" | "PROCESSING" | "SYNCED" | "CONFLICT" | "FAILED"
+  retryCount Int           @default(0)
+  errorMsg   String?
+  syncedAt   DateTime?
+  createdAt  DateTime      @default(now())
+}
+

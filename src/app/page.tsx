@@ -39,7 +39,11 @@ import {
   ShieldAlert,
   ChevronRight,
   LogOut,
-  Sparkle
+  Sparkle,
+  RefreshCw,
+  Laptop,
+  Wifi,
+  HardDrive
 } from "lucide-react";
 import { UserRole, ROLE_NAVIGATION_CONFIG } from "@/lib/permissions";
 
@@ -148,6 +152,17 @@ export default function WebPieAcademicOS() {
     source: "WALK_IN",
   });
 
+  // Academic Node & Offline Sync State (PRD Sec 33, 34, 35)
+  const [nodesList, setNodesList] = useState<any[]>([]);
+  const [isNodeSyncModalOpen, setIsNodeSyncModalOpen] = useState<boolean>(false);
+  const [syncingNodeId, setSyncingNodeId] = useState<string | null>(null);
+  const [isPairNodeModalOpen, setIsPairNodeModalOpen] = useState<boolean>(false);
+  const [pairForm, setPairForm] = useState({
+    nodeCode: `NODE-PUNE-${Math.floor(100 + Math.random() * 900)}`,
+    name: "Kothrud Lab 1 OMR Node",
+    machineFingerprint: `WIN-PC-${Math.floor(1000 + Math.random() * 9000)}-X64`,
+  });
+
   // Synchronize Active Tab when Role Changes
   useEffect(() => {
     const config = ROLE_NAVIGATION_CONFIG[currentRole];
@@ -170,6 +185,7 @@ export default function WebPieAcademicOS() {
     loadWebsite();
     loadParentPortal("260001", parentLang);
     loadTenants();
+    loadNodes();
   }, []);
 
   const showToast = (msg: string) => {
@@ -326,6 +342,73 @@ export default function WebPieAcademicOS() {
       }
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  async function loadNodes() {
+    try {
+      const res = await fetch("/api/v1/sync/nodes");
+      if (res.ok) {
+        const data = await res.json();
+        setNodesList(data.nodes || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleForceSync(node: any) {
+    setSyncingNodeId(node.id);
+    try {
+      const res = await fetch("/api/v1/sync/pull", {
+        headers: {
+          Authorization: `Bearer ${node.pairingToken || node.authToken}`,
+        },
+      });
+      if (res.ok) {
+        const delta = await res.json();
+        showToast(`Sync completed: ${delta.activeExams.length} active exams, ${delta.studentRosters.length} students synchronized.`);
+        loadNodes();
+      } else {
+        const d = await res.json();
+        showToast(`Sync error: ${d.error || "Delta pull failed"}`);
+      }
+    } catch (e: any) {
+      showToast(`Sync failed: ${e.message}`);
+    } finally {
+      setSyncingNodeId(null);
+    }
+  }
+
+  async function handlePairNode(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/v1/sync/handshake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantCode: currentTenant,
+          nodeCode: pairForm.nodeCode,
+          name: pairForm.name,
+          machineFingerprint: pairForm.machineFingerprint,
+          osVersion: "Windows 11 Pro 64-bit / Electron v32.1",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Academic Node '${pairForm.name}' successfully paired!`);
+        setIsPairNodeModalOpen(false);
+        setPairForm({
+          nodeCode: `NODE-PUNE-${Math.floor(100 + Math.random() * 900)}`,
+          name: "Kothrud Lab 1 OMR Node",
+          machineFingerprint: `WIN-PC-${Math.floor(1000 + Math.random() * 9000)}-X64`,
+        });
+        loadNodes();
+      } else {
+        showToast(`Pairing failed: ${data.error}`);
+      }
+    } catch (e: any) {
+      showToast(`Pairing failed: ${e.message}`);
     }
   }
 
@@ -845,11 +928,22 @@ export default function WebPieAcademicOS() {
 
         {/* Global Controls & 9-Role Switcher */}
         <div className="flex items-center gap-3">
-          {/* Node Health */}
-          <div className="hidden md:flex items-center gap-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-md font-medium">
+          {/* Node Health / Fleet Trigger */}
+          <button
+            type="button"
+            onClick={() => {
+              loadNodes();
+              setIsNodeSyncModalOpen(true);
+            }}
+            className="hidden md:flex items-center gap-2 text-xs bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-md font-medium transition cursor-pointer shadow-xs active:scale-95"
+            title="Open Windows Academic Node & Offline Sync Hub"
+          >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Academic Node: Synced</span>
-          </div>
+            <span className="font-bold">Academic Node: Synced</span>
+            <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold">
+              {nodesList.length > 0 ? `${nodesList.length} Online` : "Ready"}
+            </span>
+          </button>
 
           {/* Quick Role Switcher for Seamless Testing of All 9 Personas */}
           <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 p-1 rounded-lg">
@@ -2946,6 +3040,307 @@ export default function WebPieAcademicOS() {
                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
                 >
                   Add to CRM Pipeline
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* WINDOWS ACADEMIC NODE & OFFLINE SYNC HUB (PRD Sec 33-35)  */}
+      {/* ========================================================= */}
+      {isNodeSyncModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden my-8">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-600/30 border border-blue-500/50 text-blue-400">
+                  <Laptop className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold tracking-tight">Windows Academic Node & Offline Sync Hub</h2>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded font-mono font-bold">
+                      PRD Sec 33-35 Beta
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Resilient Edge Telemetry, Local SQLite Caching, and Two-Way Delta Sync
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsNodeSyncModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+              {/* Architecture Overview Banner */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50/70 border border-blue-200 p-3.5 rounded-xl">
+                  <div className="flex items-center gap-2 text-blue-800 font-bold text-xs mb-1">
+                    <HardDrive className="w-4 h-4 text-blue-600" />
+                    Local SQLite Cache
+                  </div>
+                  <p className="text-[11px] text-blue-900 leading-relaxed">
+                    Cached question bank, active exams, and student rosters stored encrypted on local node disk for 100% offline exam scanning.
+                  </p>
+                </div>
+
+                <div className="bg-emerald-50/70 border border-emerald-200 p-3.5 rounded-xl">
+                  <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs mb-1">
+                    <Cpu className="w-4 h-4 text-emerald-600" />
+                    Edge Deterministic Eval
+                  </div>
+                  <p className="text-[11px] text-emerald-900 leading-relaxed">
+                    Autonomous OMR bubble decoding and grading engine operates on node with zero cloud latency and instant rank preview.
+                  </p>
+                </div>
+
+                <div className="bg-purple-50/70 border border-purple-200 p-3.5 rounded-xl">
+                  <div className="flex items-center gap-2 text-purple-800 font-bold text-xs mb-1">
+                    <RefreshCw className="w-4 h-4 text-purple-600" />
+                    Authoritative Sync
+                  </div>
+                  <p className="text-[11px] text-purple-900 leading-relaxed">
+                    Background delta queue automatically synchronizes scan matrices, attendance, and mastery logs upon network restoration.
+                  </p>
+                </div>
+              </div>
+
+              {/* Fleet Controls Bar */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Connected Terminal Fleet</h3>
+                  <p className="text-xs text-slate-500">
+                    Tenant: <strong className="text-slate-800">{currentTenant}</strong> • Nodes active: {nodesList.length}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={loadNodes}
+                    className="flex items-center gap-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-lg border border-slate-300 transition"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Refresh
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPairNodeModalOpen(true)}
+                    className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3.5 py-2 rounded-lg shadow-sm transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Pair Windows Node
+                  </button>
+                </div>
+              </div>
+
+              {/* Node Fleet Listing */}
+              {nodesList.length === 0 ? (
+                <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl text-center space-y-3 bg-slate-50/50">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto">
+                    <Laptop className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-800">No Academic Nodes Paired for this Academy</div>
+                    <div className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                      Pair an offline Windows workstation in your branch computer lab to enable zero-latency OMR scanning and offline CBT testing.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsPairNodeModalOpen(true)}
+                    className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Pair First Windows Terminal
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {nodesList.map((node) => (
+                    <div
+                      key={node.id}
+                      className="border border-slate-200 rounded-xl p-4 bg-white hover:border-blue-300 hover:shadow-xs transition space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-slate-100 text-slate-700">
+                            <Laptop className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-slate-900">{node.name}</span>
+                              <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-300 px-1.5 py-0.5 rounded font-mono font-semibold">
+                                {node.nodeCode}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                  node.status === "ACTIVE"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-amber-100 text-amber-800"
+                                }`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${node.status === "ACTIVE" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                                {node.status === "ACTIVE" ? "ONLINE & PAIRED" : node.status}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                              <span>Hardware: <strong className="text-slate-700 font-mono">{node.machineFingerprint}</strong></span>
+                              <span>•</span>
+                              <span>OS: {node.osVersion || "Windows 11 Pro"}</span>
+                              <span>•</span>
+                              <span>IP: {node.ipAddress || "127.0.0.1"}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Force Pull Delta Sync Button */}
+                        <button
+                          type="button"
+                          disabled={syncingNodeId === node.id}
+                          onClick={() => handleForceSync(node)}
+                          className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60 transition self-start sm:self-center"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${syncingNodeId === node.id ? "animate-spin text-blue-700" : ""}`} />
+                          {syncingNodeId === node.id ? "Pulling Delta..." : "Sync Delta Now"}
+                        </button>
+                      </div>
+
+                      {/* Telemetry Counters */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
+                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
+                          <div className="text-[10px] uppercase font-bold text-slate-400">Offline Scans</div>
+                          <div className="text-sm font-black text-slate-900">{node.offlineScansCount || 0} sheets</div>
+                        </div>
+                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
+                          <div className="text-[10px] uppercase font-bold text-slate-400">Engine State</div>
+                          <div className="text-xs font-bold text-blue-700">{node.syncEngineState || "IDLE"}</div>
+                        </div>
+                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
+                          <div className="text-[10px] uppercase font-bold text-slate-400">Last Seen</div>
+                          <div className="text-xs font-semibold text-slate-700">
+                            {node.lastSeenAt ? new Date(node.lastSeenAt).toLocaleTimeString() : "Recent"}
+                          </div>
+                        </div>
+                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
+                          <div className="text-[10px] uppercase font-bold text-slate-400">Sync Status</div>
+                          <div className="text-xs font-semibold text-emerald-700 flex items-center justify-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Delta Up-to-date
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>End-to-End Encrypted Handshake with SHA-256 Token Authorization</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNodeSyncModalOpen(false)}
+                className="bg-white border border-slate-300 text-slate-700 font-bold px-4 py-1.5 rounded-lg hover:bg-slate-50 transition"
+              >
+                Close Hub
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* PAIR NEW WINDOWS ACADEMIC NODE MODAL                      */}
+      {/* ========================================================= */}
+      {isPairNodeModalOpen && (
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Laptop className="w-5 h-5 text-blue-400" />
+                <h3 className="font-bold text-sm">Pair Windows Academic Node</h3>
+              </div>
+              <button
+                onClick={() => setIsPairNodeModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePairNode} className="p-6 space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold">Node Identifier Code *</label>
+                <input
+                  type="text"
+                  required
+                  value={pairForm.nodeCode}
+                  onChange={(e) => setPairForm({ ...pairForm, nodeCode: e.target.value.toUpperCase() })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono font-bold focus:ring-1 focus:ring-blue-500"
+                  placeholder="NODE-PUNE-01"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold">Friendly Terminal Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={pairForm.name}
+                  onChange={(e) => setPairForm({ ...pairForm, name: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:ring-1 focus:ring-blue-500"
+                  placeholder="Kothrud Lab 1 Scanner PC"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-700 font-bold">Hardware Machine Fingerprint *</label>
+                <input
+                  type="text"
+                  required
+                  value={pairForm.machineFingerprint}
+                  onChange={(e) => setPairForm({ ...pairForm, machineFingerprint: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:ring-1 focus:ring-blue-500"
+                  placeholder="WIN-PC-8921-X64"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Unique CPU + Motherboard UUID generated by the Windows Node desktop installer.
+                </p>
+              </div>
+
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-1">
+                <div className="text-[11px] font-bold text-blue-900">Target Tenant Scope</div>
+                <div className="text-[11px] text-blue-800">
+                  Code: <strong className="font-mono">{currentTenant}</strong> • Branch: {currentBranch}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsPairNodeModalOpen(false)}
+                  className="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg border border-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
+                >
+                  Authenticate & Pair Node
                 </button>
               </div>
             </form>

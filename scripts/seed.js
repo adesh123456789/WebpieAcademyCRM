@@ -8,6 +8,8 @@ async function main() {
 
   // 1. Clean existing data
   await prisma.auditLog.deleteMany();
+  await prisma.syncQueueItem.deleteMany();
+  await prisma.academicNode.deleteMany();
   await prisma.cBTAttempt.deleteMany();
   await prisma.attendanceRecord.deleteMany();
   await prisma.attendanceSession.deleteMany();
@@ -648,6 +650,43 @@ async function main() {
       },
     });
   }
+
+  // 14. Seed Academic Nodes for Offline OMR / Terminal Sync (PRD Sec 33-35)
+  await prisma.academicNode.create({
+    data: {
+      tenantId: tenant1.id,
+      branchId: branchKothrud.id,
+      nodeCode: "NODE-APEX-01",
+      name: "Apex Kothrud Main Exam Terminal",
+      machineFingerprint: "WIN-PC-9821-X64-APEX",
+      pairingToken: "node_apex_live_token_77a8b9",
+      ipAddress: "192.168.1.45",
+      osVersion: "Windows 11 Pro 64-bit (Build 22631)",
+      status: "ONLINE",
+      syncEngineState: "IDLE",
+      offlineScansCount: 48,
+      lastSeenAt: new Date(),
+      lastSyncAt: new Date(),
+    },
+  });
+
+  await prisma.academicNode.create({
+    data: {
+      tenantId: tenant2.id,
+      nodeCode: "NODE-DESH-01",
+      name: "Deshmukh Classroom Tablet Station",
+      machineFingerprint: "WIN-TAB-1102-X64-DESH",
+      pairingToken: "node_desh_live_token_44c1d2",
+      ipAddress: "192.168.2.18",
+      osVersion: "Windows 11 Home 64-bit",
+      status: "ONLINE",
+      syncEngineState: "IDLE",
+      offlineScansCount: 15,
+      lastSeenAt: new Date(),
+      lastSyncAt: new Date(),
+    },
+  });
+  console.log(" Academic Nodes seeded: NODE-APEX-01, NODE-DESH-01");
 
   console.log(" Seeding completed successfully!");
   console.log("Credentials seeded:");
