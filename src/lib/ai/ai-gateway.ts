@@ -1,27 +1,35 @@
+import { performance } from "node:perf_hooks";
+import { selectApprovedBankQuestions } from "./bank-fallback";
+import { parentSummaryPrompt, questionGeneratePrompt } from "./prompts";
+import { recordAIRequest } from "./provenance";
+import {
+  AI_CANDIDATE_STATUS,
+  generatedQuestionSchema,
+  modelQuestionListSchema,
+  parentSummarySchema,
+  type AIContext,
+  type AIResult,
+  type Difficulty,
+  type GeneratedQuestion,
+  type Language,
+  type ParentSummary,
+  type ParentSummaryInput,
+  type QuestionGenerateInput,
+} from "./schemas";
+
+// ---- back-compat types (kept so existing route imports still compile) ----
+
 export interface AIGenerateQuestionRequest {
   tenantId: string;
   examType: string;
   subject: string;
   chapter: string;
   concept: string;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
+  difficulty: Difficulty;
   count: number;
 }
 
-export interface AIGeneratedQuestionCandidate {
-  body: string;
-  options: { id: string; text: string }[];
-  correctAnswer: string;
-  solution: string;
-  declaredDifficulty: "EASY" | "MEDIUM" | "HARD";
-  concept: string;
-  subject: string;
-  provenance: {
-    provider: string;
-    model: string;
-    timestamp: string;
-  };
-}
+export interface AIGeneratedQuestionCandidate extends GeneratedQuestion {}
 
 export interface ParentReportSummaryRequest {
   studentName: string;
@@ -32,174 +40,274 @@ export interface ParentReportSummaryRequest {
   totalStudents: number;
   strongConcepts: string[];
   weakConcepts: string[];
-  language: "en" | "hi" | "mr";
+  language: Language;
+}
+
+// ---- config ----
+
+const DEFAULT_TIMEOUT_MS = 20_000;
+const timeoutMs = () => {
+  const n = Number(process.env.AI_CALL_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_MS;
+};
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
- * AI Gateway & Scope Guard (PRD Section 30)
+ * AI-001 AI Gateway. One path per task:
+ *   resolve scope -> prompt template -> model call (bounded timeout) ->
+ *   runtime schema validation -> provenance -> return.
+ * Any failure yields a safe, non-fabricated fallback. AI never produces
+ * authoritative marks, rank or mastery.
  */
 export class AIGateway {
-  public static readonly VERSION = "2026.1";
+  static readonly VERSION = "2026.2";
 
-  /**
-   * Generates candidate questions with strict schema validation
-   * Uses Gemini/OpenAI if API keys exist, or high-fidelity deterministic generator fallback (PRD AI-007)
-   */
-  public static async generateQuestionCandidates(
-    params: AIGenerateQuestionRequest
+  // ---------- question.generate ----------
+
+  static async generateQuestions(
+    input: QuestionGenerateInput,
+    ctx: AIContext,
+  ): Promise<AIResult<{ candidates: GeneratedQuestion[] }>> {
+    const count = Math.min(Math.max(1, Math.trunc(input.count || 1)), 20);
+    const started = performance.now();
+    const tpl = questionGeneratePrompt;
+
+    const modelCandidates = await this.tryModelQuestions({ ...input, count }, ctx);
+
+    if (modelCandidates) {
+      const latencyMs = performance.now() - started;
+      const aiRequestId = await recordAIRequest(ctx, {
+        task: "question.generate",
+        provider: "google",
+        model: "gemini-1.5-flash",
+        promptTemplateId: tpl.id,
+        promptTemplateVersion: tpl.version,
+        input: { ...input, count, tenantId: ctx.tenantId },
+        outcome: "MODEL",
+        latencyMs,
+      });
+      const candidates = modelCandidates.map((c) => ({
+        ...c,
+        provenance: { ...c.provenance, aiRequestId },
+      }));
+      return {
+        data: { candidates },
+        outcome: "MODEL",
+        provenance: candidates[0]?.provenance ?? this.blankProvenance(tpl, aiRequestId),
+      };
+    }
+
+    // fallback: approved bank only, never fabricated
+    const latencyMs = performance.now() - started;
+    const aiRequestId = await recordAIRequest(ctx, {
+      task: "question.generate",
+      provider: "webpie-bank",
+      model: "approved-question-bank",
+      promptTemplateId: tpl.id,
+      promptTemplateVersion: tpl.version,
+      input: { ...input, count, tenantId: ctx.tenantId },
+      outcome: "FALLBACK_BANK",
+      latencyMs,
+    });
+    const candidates = await selectApprovedBankQuestions(
+      { tenantId: ctx.tenantId, concept: input.concept, difficulty: input.difficulty, count },
+      aiRequestId,
+    );
+    return {
+      data: { candidates },
+      outcome: "FALLBACK_BANK",
+      provenance: candidates[0]?.provenance ?? this.blankProvenance(tpl, aiRequestId),
+      shortfall: count - candidates.length,
+    };
+  }
+
+  /** Returns validated MODEL candidates, or null to signal "use the fallback". */
+  private static async tryModelQuestions(
+    input: QuestionGenerateInput,
+    ctx: AIContext,
+  ): Promise<GeneratedQuestion[] | null> {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return null;
+
+    try {
+      const res = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: questionGeneratePrompt.build(input) }] }],
+            generationConfig: { responseMimeType: "application/json" },
+          }),
+        },
+        timeoutMs(),
+      );
+      if (!res.ok) {
+        console.error(`[ai] gemini http ${res.status} trace=${ctx.traceId}`);
+        return null;
+      }
+      const data = (await res.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) return null;
+
+      const parsed = modelQuestionListSchema.safeParse(JSON.parse(text));
+      if (!parsed.success) {
+        console.error(`[ai] gemini output failed schema trace=${ctx.traceId}`);
+        return null;
+      }
+
+      const mapped: GeneratedQuestion[] = [];
+      for (const q of parsed.data.slice(0, input.count)) {
+        const candidate = {
+          body: q.body,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          solution: q.solution,
+          declaredDifficulty: input.difficulty,
+          concept: input.concept,
+          subject: input.subject,
+          status: AI_CANDIDATE_STATUS,
+          source: "MODEL" as const,
+          provenance: {
+            provider: "google",
+            model: "gemini-1.5-flash",
+            promptTemplateId: questionGeneratePrompt.id,
+            promptTemplateVersion: questionGeneratePrompt.version,
+            aiRequestId: "pending",
+          },
+        };
+        const check = generatedQuestionSchema.safeParse(candidate);
+        if (!check.success) return null; // one bad item -> distrust the whole batch
+        mapped.push(check.data);
+      }
+      return mapped.length > 0 ? mapped : null;
+    } catch (err) {
+      console.error(`[ai] gemini call failed trace=${ctx.traceId}:`, (err as Error).message);
+      return null;
+    }
+  }
+
+  // ---------- report.parentSummary ----------
+
+  static async parentSummary(
+    input: ParentSummaryInput,
+    ctx: AIContext,
+  ): Promise<AIResult<ParentSummary>> {
+    const started = performance.now();
+    const tpl = parentSummaryPrompt;
+    // v1: no model wired for parent summaries yet - deterministic template only.
+    // The template restates authoritative numbers; it never computes them.
+    const text = renderParentTemplate(input);
+    const latencyMs = performance.now() - started;
+    const aiRequestId = await recordAIRequest(ctx, {
+      task: "report.parentSummary",
+      provider: "webpie-template",
+      model: "parent-summary-template-v1",
+      promptTemplateId: tpl.id,
+      promptTemplateVersion: tpl.version,
+      input: { ...input, tenantId: ctx.tenantId },
+      outcome: "FALLBACK_TEMPLATE",
+      latencyMs,
+    });
+    const summary: ParentSummary = {
+      text,
+      language: input.language,
+      outcome: "FALLBACK_TEMPLATE",
+      provenance: {
+        provider: "webpie-template",
+        model: "parent-summary-template-v1",
+        promptTemplateId: tpl.id,
+        promptTemplateVersion: tpl.version,
+        aiRequestId,
+      },
+    };
+    const check = parentSummarySchema.safeParse(summary);
+    if (!check.success) throw new Error("parent summary template produced invalid output");
+    return { data: check.data, outcome: "FALLBACK_TEMPLATE", provenance: summary.provenance };
+  }
+
+  private static blankProvenance(
+    tpl: { id: string; version: string },
+    aiRequestId: string,
+  ): AIResult<unknown>["provenance"] {
+    return {
+      provider: "webpie-bank",
+      model: "approved-question-bank",
+      promptTemplateId: tpl.id,
+      promptTemplateVersion: tpl.version,
+      aiRequestId,
+    };
+  }
+
+  // ---------- deprecated back-compat shims (Codex removes when routes migrate) ----------
+
+  /** @deprecated use {@link AIGateway.generateQuestions}. Returns candidates only. */
+  static async generateQuestionCandidates(
+    params: AIGenerateQuestionRequest,
   ): Promise<AIGeneratedQuestionCandidate[]> {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    const openAiKey = process.env.OPENAI_API_KEY;
-
-    // If Gemini key is available, call Gemini 1.5/2.0 API with structured JSON output
-    if (geminiKey) {
-      try {
-        const prompt = `Generate ${params.count} high-stakes multiple choice question(s) for ${params.examType} on Subject: ${params.subject}, Chapter: ${params.chapter}, Concept: ${params.concept}, Difficulty: ${params.difficulty}.
-Return strictly JSON formatted array of objects with keys: "body" (question text with LaTeX equations $...$), "options" (array of 4 objects {id: "A"|"B"|"C"|"D", text: string}), "correctAnswer" ("A"|"B"|"C"|"D"), "solution" (detailed step-by-step calculation with LaTeX).`;
-
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: "application/json" },
-            }),
-          }
-        );
-
-        if (res.ok) {
-          const data = await res.json();
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            const parsed = JSON.parse(text);
-            const list = Array.isArray(parsed) ? parsed : [parsed];
-            return list.map((q: any) => ({
-              body: q.body,
-              options: q.options,
-              correctAnswer: q.correctAnswer,
-              solution: q.solution,
-              declaredDifficulty: params.difficulty,
-              concept: params.concept,
-              subject: params.subject,
-              provenance: {
-                provider: "Google Gemini",
-                model: "gemini-1.5-flash",
-                timestamp: new Date().toISOString(),
-              },
-            }));
-          }
-        }
-      } catch (err) {
-        console.warn("Gemini API call failed, falling back to deterministic academic generator:", err);
-      }
-    }
-
-    // Deterministic Fallback Generator (PRD AI-007: Core workflow remains usable without AI)
-    return this.getDeterministicCandidates(params);
+    const ctx: AIContext = {
+      tenantId: params.tenantId,
+      userId: "system",
+      role: "SYSTEM",
+      traceId: `legacy-${Date.now()}`,
+    };
+    const result = await this.generateQuestions(
+      {
+        examType: params.examType,
+        subject: params.subject,
+        chapter: params.chapter,
+        concept: params.concept,
+        difficulty: params.difficulty,
+        count: params.count,
+      },
+      ctx,
+    );
+    return result.data.candidates;
   }
 
-  /**
-   * Generates multilingual parent report summary (PRD Sec 22 & 30)
-   */
-  public static async generateParentReportSummary(
-    req: ParentReportSummaryRequest
-  ): Promise<string> {
-    const accuracy = Math.round((req.score / req.maxMarks) * 100);
-
-    if (req.language === "mr") {
-      // Marathi Summary
-      return `पालक सारांश: ${req.studentName} यांनी ${req.examTitle} मध्ये ${req.maxMarks} पैकी ${req.score} गुण मिळवले आहेत (${accuracy}% गुण). एकूण ${req.totalStudents} विद्यार्थ्यांमध्ये त्यांचा वर्ग क्रमांक ${req.rank} आहे.
-उत्कृष्ट संकल्पना: ${req.strongConcepts.join(", ") || "सर्वसाधारण"}.
-सुधारणेची आवश्यकता असलेल्या संकल्पना: ${req.weakConcepts.join(", ") || "कोणतीही गंभीर त्रुटी नाही"}.
-शिक्षकांची शिफारस: विद्यार्थी दररोज 45 मिनिटे कमकुवत संकल्पनांचा सराव करेल.`;
-    }
-
-    if (req.language === "hi") {
-      // Hindi Summary
-      return `अभिभावक सारांश: ${req.studentName} ने ${req.examTitle} में ${req.maxMarks} में से ${req.score} अंक प्राप्त किए हैं (${accuracy}% अंक)। कुल ${req.totalStudents} विद्यार्थियों में उनकी कक्षा रैंक ${req.rank} है।
-मजबूत अवधारणाएं: ${req.strongConcepts.join(", ") || "सामान्य"}.
-सुधार की आवश्यकता: ${req.weakConcepts.join(", ") || "कोई गंभीर समस्या नहीं"}.
-शिक्षक सुझाव: छात्र को कमजोर विषयों पर अतिरिक्त अभ्यास पत्रक दिया गया है।`;
-    }
-
-    // Default English Summary
-    return `Parent Performance Summary: ${req.studentName} scored ${req.score} out of ${req.maxMarks} (${accuracy}%) in ${req.examTitle}, securing Rank ${req.rank} among ${req.totalStudents} students.
-Demonstrated Strengths: ${req.strongConcepts.join(", ") || "Solid baseline across tested units"}.
-Areas Requiring Targeted Remediation: ${req.weakConcepts.join(", ") || "None critical"}.
-Next Academic Action: Personalized remedial worksheet assigned for rapid concept recovery.`;
+  /** @deprecated use {@link AIGateway.parentSummary}. Returns the summary text only. */
+  static async generateParentReportSummary(req: ParentReportSummaryRequest): Promise<string> {
+    const ctx: AIContext = {
+      tenantId: "system",
+      userId: "system",
+      role: "SYSTEM",
+      traceId: `legacy-${Date.now()}`,
+    };
+    const result = await this.parentSummary(req, ctx);
+    return result.data.text;
   }
+}
 
-  private static getDeterministicCandidates(
-    params: AIGenerateQuestionRequest
-  ): AIGeneratedQuestionCandidate[] {
-    const candidates: AIGeneratedQuestionCandidate[] = [];
+function renderParentTemplate(i: ParentSummaryInput): string {
+  const accuracy = i.maxMarks > 0 ? Math.round((i.score / i.maxMarks) * 100) : 0;
+  const strong = i.strongConcepts.join(", ");
+  const weak = i.weakConcepts.join(", ");
 
-    for (let i = 1; i <= params.count; i++) {
-      if (params.concept.includes("Friction") || params.subject === "PHYSICS") {
-        candidates.push({
-          body: `A block of mass $m = ${2 * i}\\text{ kg}$ is placed on a rough horizontal surface with coefficient of static friction $\\mu_s = 0.4$. If a horizontal force $F = ${10 + 5 * i}\\text{ N}$ is applied, determine the frictional force acting on the block. (Take $g = 9.8\\text{ m/s}^2$)`,
-          options: [
-            { id: "A", text: `${10 + 5 * i} N` },
-            { id: "B", text: `${(2 * i * 0.4 * 9.8).toFixed(1)} N` },
-            { id: "C", text: `${(2 * i * 9.8).toFixed(1)} N` },
-            { id: "D", text: "Zero" },
-          ],
-          correctAnswer: "A",
-          solution: `Limiting friction $f_L = \\mu_s N = 0.4 \\times (${2 * i} \\times 9.8) = ${(2 * i * 0.4 * 9.8).toFixed(1)}\\text{ N}$. Since the applied force $F = ${10 + 5 * i}\\text{ N} \\le f_L$, the body remains in static equilibrium. The static friction force exactly balances the applied force, hence $f_s = ${10 + 5 * i}\\text{ N}$.`,
-          declaredDifficulty: params.difficulty,
-          concept: params.concept,
-          subject: params.subject,
-          provenance: {
-            provider: "WebPie Deterministic Academic Engine",
-            model: "academic-rules-v2",
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } else if (params.subject === "CHEMISTRY") {
-        candidates.push({
-          body: `Which of the following diatomic species possesses a bond order of $2.5$ and exhibits paramagnetic behavior according to Molecular Orbital Theory?`,
-          options: [
-            { id: "A", text: "$\\text{N}_2^+$" },
-            { id: "B", text: "$\\text{O}_2$" },
-            { id: "C", text: "$\\text{C}_2$" },
-            { id: "D", text: "$\\text{N}_2^{2-}$" },
-          ],
-          correctAnswer: "A",
-          solution: `For $\\text{N}_2^+$ (13 electrons): electronic configuration is $\\sigma_{1s}^2 \\sigma_{1s}^{*2} \\sigma_{2s}^2 \\sigma_{2s}^{*2} (\\pi_{2p_x}^2 = \\pi_{2p_y}^2) \\sigma_{2p_z}^1$. Bond order = $(9 - 4)/2 = 2.5$. It has 1 unpaired electron in $\\sigma_{2p_z}$, hence it is paramagnetic.`,
-          declaredDifficulty: params.difficulty,
-          concept: params.concept,
-          subject: params.subject,
-          provenance: {
-            provider: "WebPie Deterministic Academic Engine",
-            model: "academic-rules-v2",
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } else {
-        candidates.push({
-          body: `Evaluate the value of $\\lim_{x \\to 0} \\frac{\\sin(${i}x) - ${i}x}{x^3}$.`,
-          options: [
-            { id: "A", text: `${-(i ** 3) / 6}` },
-            { id: "B", text: `${(i ** 3) / 6}` },
-            { id: "C", text: "0" },
-            { id: "D", text: "Does not exist" },
-          ],
-          correctAnswer: "A",
-          solution: `Using Taylor series expansion: $\\sin(${i}x) = ${i}x - \\frac{(${i}x)^3}{3!} + O(x^5) = ${i}x - \\frac{${i ** 3}x^3}{6} + \\dots$. Therefore, $\\frac{\\sin(${i}x) - ${i}x}{x^3} = -\\frac{${i ** 3}}{6}$.`,
-          declaredDifficulty: params.difficulty,
-          concept: params.concept,
-          subject: params.subject,
-          provenance: {
-            provider: "WebPie Deterministic Academic Engine",
-            model: "academic-rules-v2",
-            timestamp: new Date().toISOString(),
-          },
-        });
-      }
-    }
-
-    return candidates;
+  if (i.language === "mr") {
+    return `पालक सारांश: ${i.studentName} यांनी ${i.examTitle} मध्ये ${i.maxMarks} पैकी ${i.score} गुण मिळवले (${accuracy}%). एकूण ${i.totalStudents} विद्यार्थ्यांमध्ये वर्ग क्रमांक ${i.rank}.
+उत्कृष्ट संकल्पना: ${strong || "सर्वसाधारण"}.
+सुधारणा आवश्यक: ${weak || "कोणतीही गंभीर त्रुटी नाही"}.
+पुढील कृती: कमकुवत संकल्पनांसाठी वैयक्तिक सराव पत्रक दिले आहे.`;
   }
+  if (i.language === "hi") {
+    return `अभिभावक सारांश: ${i.studentName} ने ${i.examTitle} में ${i.maxMarks} में से ${i.score} अंक (${accuracy}%) प्राप्त किए। कुल ${i.totalStudents} विद्यार्थियों में कक्षा रैंक ${i.rank}।
+मज़बूत अवधारणाएँ: ${strong || "सामान्य"}.
+सुधार आवश्यक: ${weak || "कोई गंभीर समस्या नहीं"}.
+अगली कार्रवाई: कमज़ोर अवधारणाओं के लिए व्यक्तिगत अभ्यास पत्रक दिया गया है।`;
+  }
+  return `Parent summary: ${i.studentName} scored ${i.score} of ${i.maxMarks} (${accuracy}%) in ${i.examTitle}, ranking ${i.rank} of ${i.totalStudents}.
+Strengths: ${strong || "solid baseline across tested units"}.
+Focus areas: ${weak || "none critical"}.
+Next action: a personalised remedial worksheet has been assigned for the focus areas.`;
 }
