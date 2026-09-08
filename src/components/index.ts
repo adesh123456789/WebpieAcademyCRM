@@ -10,3 +10,4 @@ export * from "./modals/RecordFeeModal";
 export * from "./modals/AddLeadModal";
 export * from "./modals/NodeSyncModal";
 export * from "./modals/PairNodeModal";
+export * from "./views";

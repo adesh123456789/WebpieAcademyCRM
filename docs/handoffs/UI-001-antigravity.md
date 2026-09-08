@@ -1,11 +1,11 @@
 # Task Handoff: UI-001
 
-- **Task / owner**: UI-001 (Extract Shell, Navigation, and Common Components) / Antigravity
-- **Timestamp + timezone**: 2026-09-08 23:25 Asia/Kolkata
-- **Status**: DONE (Ready for Review / Integrated)
-- **Base commit / branch / worktree**: `59f658c` / `master` (active checkout)
+- **Task / owner**: UI-001 (Extract Shell, Navigation, Common Feedback Modals, and Screen Views) / Antigravity
+- **Timestamp + timezone**: 2026-09-08 23:48 Asia/Kolkata
+- **Status**: DONE (Complete View & Shell Modularization Integrated)
+- **Base commit / branch / worktree**: `5f59067` / `master` (active checkout)
 - **Files owned or changed**:
-  - `src/app/page.tsx` (modularized orchestrator, extracted ~1,100 lines of modals & shell)
+  - `src/app/page.tsx` (modularized orchestrator reduced from 3,365 lines down to 1,123 lines; over 2,240 lines decomposed into modular components)
   - `src/components/shell/AppHeader.tsx` [NEW]
   - `src/components/shell/AppSidebar.tsx` [NEW]
   - `src/components/modals/Student360Modal.tsx` [NEW]
@@ -18,25 +18,40 @@
   - `src/components/modals/AddLeadModal.tsx` [NEW]
   - `src/components/modals/NodeSyncModal.tsx` [NEW]
   - `src/components/modals/PairNodeModal.tsx` [NEW]
-  - `src/components/index.ts` [NEW]
+  - `src/components/views/SuperAdminView.tsx` [NEW]
+  - `src/components/views/DashboardView.tsx` [NEW]
+  - `src/components/views/StudentsView.tsx` [NEW]
+  - `src/components/views/QuestionsView.tsx` [NEW]
+  - `src/components/views/ExamsView.tsx` [NEW]
+  - `src/components/views/OmrView.tsx` [NEW]
+  - `src/components/views/AnalyticsView.tsx` [NEW]
+  - `src/components/views/InterventionsView.tsx` [NEW]
+  - `src/components/views/CbtView.tsx` [NEW]
+  - `src/components/views/CrmView.tsx` [NEW]
+  - `src/components/views/FeesView.tsx` [NEW]
+  - `src/components/views/AttendanceView.tsx` [NEW]
+  - `src/components/views/WebsiteView.tsx` [NEW]
+  - `src/components/views/ParentPortalView.tsx` [NEW]
+  - `src/components/views/StudentRadarView.tsx` [NEW]
+  - `src/components/views/index.ts` [NEW]
+  - `src/components/index.ts`
 - **What works now**:
   - Full Next.js production build (`npm run build`: 24/24 static pages generated, 0 type/lint errors).
-  - All 6 Vitest test suites (`vitest run`: 29/29 tests pass).
+  - All 7 Vitest test suites (`vitest run`: 36/36 tests pass including Codex FND-001 isolated routes harness).
   - Production preview server listening at `http://localhost:3000` (HTTP 200 OK verified via PowerShell `Invoke-WebRequest`).
   - Shell components (`AppHeader`, `AppSidebar`) support responsive collapse, role switching across all 9 personas, and Windows Academic Node telemetry badge.
   - All 10 dialog modals extracted into dedicated components with strict TypeScript prop contracts.
+  - All 15 workspace view screens extracted into dedicated components under `src/components/views/`. Future UI tasks (UI-003 through UI-012) can now be developed in completely isolated view files without touching `src/app/page.tsx`.
 - **API/schema/contract changes**:
   - None. UI-001 strictly preserves all existing API route invocations, schemas, permissions, and request/response payloads. Zero API changes.
 - **Checks run and exact results**:
   - `npm.cmd run build`: Exited 0. All 24 routes compiled cleanly.
-  - `npm.cmd test`: Exited 0. 6 passed test files, 29 passed tests.
+  - `npm.cmd test`: Exited 0. 7 passed test files, 36 passed tests.
   - `Invoke-WebRequest -Uri 'http://localhost:3000'`: StatusCode 200 OK.
 - **Acceptance evidence**:
-  - Component tree in `src/components/shell` and `src/components/modals`.
+  - Component tree organized in `src/components/shell`, `src/components/modals`, and `src/components/views`.
   - Re-exports centralized in `src/components/index.ts`.
-  - Modularized `src/app/page.tsx` directly rendering extracted components.
-- **Known gaps / blockers**:
-  - UI-002 depends on Codex completing `SEC-001` (backend auth & route guards) and publishing contract `C01`.
-  - Once Codex provides `C01` and `SEC-001`, Antigravity will proceed with `UI-002` (Session-driven role shell, real login/logout, authorized navigation and 401/403 states).
-- **Next action and recipient**:
-  - Codex to proceed with `FND-001` (synthetic DB factory) and `SEC-001` (route guards / auth contracts).
+  - `src/app/page.tsx` acts purely as an orchestrator rendering modular view components.
+- **Dependencies & Next Steps**:
+  - Antigravity awaits Codex publishing contract `C01` (Session/scope via `SEC-001`).
+  - Once Codex provides `C01`, Antigravity will claim and execute `UI-002` (Session-driven role shell, real login/logout, authorized navigation and 401/403 states).
