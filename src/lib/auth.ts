@@ -12,6 +12,7 @@ export interface TokenPayload {
   role: string;
   name: string;
   email: string;
+  scopes?: string | null;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -51,7 +52,37 @@ export async function getSessionContext(req: NextRequest): Promise<TokenPayload 
   }
 
   if (!token) return null;
-  return verifyToken(token);
+  const payload = verifyToken(token);
+  if (!payload) return null;
+  const user = await prisma.user.findFirst({ where: { id: payload.userId, tenantId: payload.tenantId, status: "ACTIVE" }, select: { id: true, tenantId: true, branchId: true, role: true, name: true, email: true, scopes: true } });
+  if (!user) return null;
+  return { userId: user.id, tenantId: user.tenantId, branchId: user.branchId, role: user.role, name: user.name, email: user.email, scopes: user.scopes };
+}
+
+export async function getStudentForSession(session: TokenPayload) {
+  return prisma.student.findFirst({ where: { tenantId: session.tenantId, email: session.email } });
+}
+
+export async function getParentForSession(session: TokenPayload) {
+  return prisma.parent.findFirst({ where: { tenantId: session.tenantId, email: session.email } });
+}
+
+export async function canAccessStudent(session: TokenPayload, studentId: string): Promise<boolean> {
+  const student = await prisma.student.findFirst({ where: { id: studentId, tenantId: session.tenantId }, select: { id: true, branchId: true, email: true } });
+  if (!student) return false;
+  if (session.role === "OWNER" || session.role === "WEBPIE_ADMIN") return true;
+  if (session.role === "STUDENT") return student.email === session.email;
+  if (session.role === "PARENT") {
+    const parent = await getParentForSession(session);
+    return !!parent && !!(await prisma.studentParentLink.findFirst({ where: { studentId, parentId: parent.id } }));
+  }
+  if (session.role === "TEACHER") {
+    try {
+      const batchIds = JSON.parse(session.scopes || "{}").batchIds || [];
+      return !!(await prisma.enrollment.findFirst({ where: { studentId, batchId: { in: batchIds } } }));
+    } catch { return false; }
+  }
+  return student.branchId === session.branchId;
 }
 
 export function hasRole(userRole: string, allowedRoles: string[]): boolean {

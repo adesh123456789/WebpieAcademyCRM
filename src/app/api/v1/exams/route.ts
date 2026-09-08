@@ -13,11 +13,7 @@ export async function GET(req: NextRequest) {
         tenantId: session.tenantId,
       },
       include: {
-        examQuestions: {
-          include: {
-            question: true,
-          },
-        },
+        examQuestions: { include: { question: { select: { id: true, code: true, subject: true, chapter: true, topic: true, concept: true, type: true, declaredDifficulty: true, body: true, options: true, status: true } } } },
         examResults: true,
       },
       orderBy: { createdAt: "desc" },
@@ -69,7 +65,8 @@ export async function POST(req: NextRequest) {
 
     // Create exam questions
     for (let i = 0; i < questionIds.length; i++) {
-      const q = await prisma.question.findUnique({ where: { id: questionIds[i] } });
+      const q = await prisma.question.findFirst({ where: { id: questionIds[i], OR: [{ ownerScope: "PLATFORM" }, { tenantId: session.tenantId }] } });
+      if (!q) return NextResponse.json({ error: "Question outside authorized content scope" }, { status: 403 });
       await prisma.examQuestion.create({
         data: {
           examId: exam.id,

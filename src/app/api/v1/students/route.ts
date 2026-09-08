@@ -12,16 +12,16 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const branchId = searchParams.get("branchId") || session.branchId || undefined;
+    const requestedBranchId = searchParams.get("branchId");
+    const branchId = session.role === "OWNER" || session.role === "WEBPIE_ADMIN" ? (requestedBranchId || undefined) : session.branchId || undefined;
     const search = searchParams.get("search") || "";
     const targetExam = searchParams.get("targetExam") || undefined;
 
     const students = await prisma.student.findMany({
       where: {
         tenantId: session.tenantId,
-        ...(branchId && session.role !== "OWNER" && session.role !== "WEBPIE_ADMIN"
-          ? { branchId }
-          : {}),
+        ...(branchId ? { branchId } : {}),
+        ...(session.role === "TEACHER" && session.scopes ? { enrollments: { some: { batchId: { in: JSON.parse(session.scopes).batchIds || [] } } } } : {}),
         ...(targetExam ? { targetExam } : {}),
         ...(search
           ? {
@@ -74,6 +74,11 @@ export async function POST(req: NextRequest) {
     const assignedBranchId = branchId || session.branchId;
     if (!assignedBranchId) {
       return NextResponse.json({ error: "Branch ID required" }, { status: 400 });
+    }
+
+    const branch = await prisma.branch.findFirst({ where: { id: assignedBranchId, tenantId: session.tenantId } });
+    if (!branch || (session.role !== "OWNER" && session.role !== "WEBPIE_ADMIN" && branch.id !== session.branchId)) {
+      return NextResponse.json({ error: "Branch outside authorized scope" }, { status: 403 });
     }
 
     // Check duplicate

@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       role: user.role,
       name: user.name,
       email: user.email,
+      scopes: user.scopes,
     });
 
     const response = NextResponse.json({

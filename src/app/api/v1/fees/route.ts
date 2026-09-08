@@ -61,6 +61,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Student and amount are required" }, { status: 400 });
     }
 
+    const student = await prisma.student.findFirst({ where: { id: studentId, tenantId: session.tenantId } });
+    if (!student) return NextResponse.json({ error: "Student outside authorized tenant" }, { status: 403 });
+    if (feePlanId) {
+      const plan = await prisma.feePlan.findFirst({ where: { id: feePlanId, tenantId: session.tenantId, studentId } });
+      if (!plan) return NextResponse.json({ error: "Fee plan does not belong to student" }, { status: 403 });
+    }
+
     const count = await prisma.feePayment.count({ where: { tenantId: session.tenantId } });
     const receiptNumber = `REC-${new Date().getFullYear()}-${String(count + 1).padStart(5, "0")}`;
 
@@ -68,7 +75,7 @@ export async function POST(req: NextRequest) {
       data: {
         tenantId: session.tenantId,
         studentId,
-        feePlanId: feePlanId || (await prisma.feePlan.findFirst({ where: { studentId } }))?.id || "",
+        feePlanId: feePlanId || (await prisma.feePlan.findFirst({ where: { studentId, tenantId: session.tenantId } }))?.id || "",
         receiptNumber,
         amount: parseFloat(amount),
         paymentMode: paymentMode || "UPI",

@@ -15,22 +15,11 @@ export async function GET(req: NextRequest) {
 
     const questions = await prisma.question.findMany({
       where: {
-        OR: [
-          { ownerScope: "PLATFORM" },
-          { tenantId: session.tenantId },
-        ],
+        AND: [{ OR: [{ ownerScope: "PLATFORM" }, { tenantId: session.tenantId }] },
+          ...(search ? [{ OR: [{ body: { contains: search } }, { concept: { contains: search } }, { chapter: { contains: search } }] }] : [])],
         ...(subject ? { subject } : {}),
         ...(difficulty ? { declaredDifficulty: difficulty } : {}),
         ...(type ? { type } : {}),
-        ...(search
-          ? {
-              OR: [
-                { body: { contains: search } },
-                { concept: { contains: search } },
-                { chapter: { contains: search } },
-              ],
-            }
-          : {}),
       },
       orderBy: { createdAt: "desc" },
     });

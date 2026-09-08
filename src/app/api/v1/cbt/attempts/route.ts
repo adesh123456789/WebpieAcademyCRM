@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionContext } from "@/lib/auth";
+import { getSessionContext, getStudentForSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeterministicEvaluationEngine, ExamQuestionConfig } from "@/lib/academic/evaluation-engine";
 
@@ -10,6 +10,9 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { examId } = body;
+    const linkedStudent = await getStudentForSession(session);
+    const studentId = session.role === "STUDENT" ? linkedStudent?.id : body.studentId;
+    if (!studentId) return NextResponse.json({ error: "Student profile required" }, { status: 403 });
 
     const exam = await prisma.exam.findFirst({
       where: { id: examId, tenantId: session.tenantId },
@@ -27,7 +30,7 @@ export async function POST(req: NextRequest) {
     let attempt = await prisma.cBTAttempt.findFirst({
       where: {
         examId,
-        studentId: session.userId,
+        studentId,
         status: "IN_PROGRESS",
       },
     });
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
         data: {
           tenantId: session.tenantId,
           examId,
-          studentId: session.userId,
+          studentId,
           startTime: new Date(),
           serverClockTime: new Date(),
           status: "IN_PROGRESS",
@@ -78,8 +81,9 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { attemptId, responses, markedForReview, isFinalSubmit } = body;
 
-    const attempt = await prisma.cBTAttempt.findUnique({
-      where: { id: attemptId },
+    const linkedStudent = await getStudentForSession(session);
+    const attempt = await prisma.cBTAttempt.findFirst({
+      where: { id: attemptId, tenantId: session.tenantId, ...(session.role === "STUDENT" ? { studentId: linkedStudent?.id || "__none__" } : {}) },
       include: {
         exam: {
           include: {
@@ -92,6 +96,7 @@ export async function PUT(req: NextRequest) {
     });
 
     if (!attempt) return NextResponse.json({ error: "Attempt not found" }, { status: 404 });
+    if (attempt.status !== "IN_PROGRESS") return NextResponse.json({ error: "Attempt is no longer active" }, { status: 409 });
 
     if (isFinalSubmit) {
       // Evaluate CBT attempt deterministically

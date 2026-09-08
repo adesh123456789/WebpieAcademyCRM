@@ -6,7 +6,7 @@ Before each task, create a task-specific contract with representative JSON fixtu
 
 | Contract | Producer / consumer | Required decisions |
 |---|---|---|
-| C01 Session/scope | Codex / Antigravity | Existing `/api/v1/auth/me`; stable user, tenant, authorized branches/batches, student/parent linkage and capability shape; unauthenticated and revoked-session behavior |
+| C01 Session/scope | Codex / Antigravity | `/api/v1/auth/me` returns `{user:{id,name,email,phone,role,tenantId,tenantName,tenantType,tenantCode,branchId,branchName}}`; server re-resolves active user/tenant/role/branch/scopes from DB on every request. `401` covers missing, invalid, revoked or inactive sessions; `403` covers valid session outside capability/record scope. Student/parent access requires explicit profile/linkage (email matching is a temporary compatibility bridge until profile FKs land). |
 | C02 Students/import | Codex / Antigravity | Scoped filters/pagination; minimal role-specific fields; import preview/errors; course/batch/parent IDs validated server-side |
 | C03 Exam versions | Codex / Antigravity | Draft/review/finalize states; profile and question version IDs; blueprint errors; approved candidates; distinct staff and student projections |
 | C04 OMR jobs | Codex / Antigravity | Upload acceptance; job/status/review shapes; signed crop URLs; unresolved-review blocker; override revision; retry-safe finalize |

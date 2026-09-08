@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionContext, getParentForSession } from "@/lib/auth";
 import { AIGateway } from "@/lib/ai/ai-gateway";
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getSessionContext(req);
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!["PARENT", "OWNER", "WEBPIE_ADMIN"].includes(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { searchParams } = new URL(req.url);
-    const studentRoll = searchParams.get("roll") || "260001";
+    const studentRoll = searchParams.get("roll");
     const language = (searchParams.get("lang") || "en") as "en" | "hi" | "mr";
 
+    const parent = session.role === "PARENT" ? await getParentForSession(session) : null;
+    if (session.role === "PARENT" && !parent) return NextResponse.json({ error: "Parent profile not linked" }, { status: 403 });
     const student = await prisma.student.findFirst({
-      where: { rollNumber: studentRoll },
+      where: { tenantId: session.tenantId, ...(studentRoll ? { rollNumber: studentRoll } : {}), ...(parent ? { parentLinks: { some: { parentId: parent.id } } } : {}) },
       include: {
         tenant: true,
         examResults: {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionContext } from "@/lib/auth";
+import { getSessionContext, canAccessStudent } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -9,6 +9,7 @@ export async function GET(
   try {
     const session = await getSessionContext(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await canAccessStudent(session, params.id))) return NextResponse.json({ error: "Student not found" }, { status: 404 });
 
     const student = await prisma.student.findFirst({
       where: {
