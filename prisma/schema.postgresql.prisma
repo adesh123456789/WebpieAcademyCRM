@@ -624,3 +624,33 @@ model SyncQueueItem {
   createdAt  DateTime      @default(now())
 }
 
+// -------------------------------------------------------------
+// ACADEMIC CONTENT VERSIONING (ACA-001)
+// -------------------------------------------------------------
+
+model QuestionVersion {
+  id          String   @id @default(uuid())
+  questionId  String
+  version     Int
+  tenantId    String?
+  snapshot    String   // Immutable JSON snapshot of prompt, options, answer and provenance
+  status      String   @default("DRAFT") // DRAFT | REVIEWED | APPROVED | RETIRED
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([questionId, version])
+  @@index([tenantId, status])
+}
+
+model CurriculumQuestionMapping {
+  id             String   @id @default(uuid())
+  curriculumCode String
+  questionId     String
+  tenantId       String?
+  mappingType    String   @default("PRIMARY") // PRIMARY | SUPPORTING
+  source         String   @default("PLATFORM")
+  createdAt      DateTime @default(now())
+
+  @@unique([curriculumCode, questionId, tenantId])
+  @@index([tenantId, curriculumCode])
+}
