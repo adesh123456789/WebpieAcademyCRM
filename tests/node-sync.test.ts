@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { AcademicNodeSyncService } from "../src/lib/sync/sync-service";
 import { prisma } from "../src/lib/prisma";
+import { createTestWorld } from "./support/fixtures";
 
 describe("Windows Academic Node & Offline Sync Protocol (PRD Sec 33, 34, 35)", () => {
   let tenantId: string;
@@ -11,23 +12,12 @@ describe("Windows Academic Node & Offline Sync Protocol (PRD Sec 33, 34, 35)", (
   let pairingToken: string;
 
   beforeAll(async () => {
-    const tenant = await prisma.tenant.findUnique({
-      where: { code: "APEX_PUNE" },
-      include: { branches: true },
-    });
-    tenantId = tenant!.id;
-    tenantCode = tenant!.code;
-
-    const exam = await prisma.exam.findFirst({
-      where: { tenantId },
-      include: { examQuestions: true },
-    });
-    examId = exam!.id;
-
-    const student = await prisma.student.findFirst({
-      where: { tenantId },
-    });
-    studentRoll = student!.rollNumber;
+    expect(await prisma.tenant.count()).toBe(0);
+    const { a } = await createTestWorld();
+    tenantId = a.tenant.id;
+    tenantCode = a.tenant.code;
+    examId = a.exam.id;
+    studentRoll = a.student.rollNumber;
   });
 
   it("SYNC-001: Successfully pairs Windows Academic Node with tenant", async () => {
@@ -107,7 +97,7 @@ describe("Windows Academic Node & Offline Sync Protocol (PRD Sec 33, 34, 35)", (
     expect(pushResult.ingestedScansCount).toBe(1);
     expect(pushResult.evaluatedCount).toBeGreaterThan(0);
 
-    // Verify student exam result was created in master database
+    // Verify student exam result was created in isolated test database
     const student = await prisma.student.findFirst({
       where: { tenantId, rollNumber: studentRoll },
     });

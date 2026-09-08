@@ -1,21 +1,19 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { prisma } from "../src/lib/prisma";
+import { createTestWorld, type TestWorld } from "./support/fixtures";
 
 describe("Tenant Isolation & Data Boundaries (PRD Section 5 & 39)", () => {
   let tenantAId: string;
   let tenantBId: string;
   let studentAId: string;
 
+  let world: TestWorld;
   beforeAll(async () => {
-    // Look up seeded tenants
-    const tenantA = await prisma.tenant.findUnique({ where: { code: "APEX_PUNE" } });
-    const tenantB = await prisma.tenant.findUnique({ where: { code: "DESHMUKH_PHYSICS" } });
-
-    tenantAId = tenantA?.id || "";
-    tenantBId = tenantB?.id || "";
-
-    const studentA = await prisma.student.findFirst({ where: { tenantId: tenantAId } });
-    studentAId = studentA?.id || "";
+    expect(await prisma.tenant.count()).toBe(0);
+    world = await createTestWorld();
+    tenantAId = world.a.tenant.id;
+    tenantBId = world.b.tenant.id;
+    studentAId = world.a.student.id;
   });
 
   it("SEC-003: Prevents cross-tenant student lookup", async () => {
@@ -31,8 +29,8 @@ describe("Tenant Isolation & Data Boundaries (PRD Section 5 & 39)", () => {
   });
 
   it("RBAC-002: Enforces branch isolation within same tenant", async () => {
-    const kothrudBranch = await prisma.branch.findFirst({ where: { code: "KOTHRUD" } });
-    const campBranch = await prisma.branch.findFirst({ where: { code: "CAMP" } });
+    const kothrudBranch = world.a.branch;
+    const campBranch = world.a.otherBranch;
 
     expect(kothrudBranch).not.toBeNull();
     expect(campBranch).not.toBeNull();

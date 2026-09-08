@@ -1,13 +1,13 @@
 # Shared delivery board
 
-Baseline: `7652cb9`, assessed 2026-09-08. Owners below are proposed lanes, not accepted claims. Only DOC-001 is complete. READY tasks may be claimed; BACKLOG tasks wait for their dependencies. Estimates are relative S/M/L task sizes, not delivery promises. Split L items into independently testable slices before implementation.
+Analysis baseline: `7652cb9`; FND-001 implementation base: `263f4ba`. Owners below are proposed lanes unless recorded in Claims. READY tasks may be claimed; BACKLOG tasks wait for their dependencies. Estimates are relative S/M/L task sizes, not delivery promises. Split L items into independently testable slices before implementation.
 
 | ID | Priority / size | Owner | Status | Dependencies | Deliverable and acceptance |
 |---|---|---|---|---|---|
 | DOC-001 | P1 / M | Codex | DONE | — | Read PRD/repo, record gaps, board and handoff process; this documentation task |
-| FND-001 | P0 / M | Codex | READY | — | Isolated synthetic DB factory, route harness and repeatable baseline; no shared DB mutation, two tenants/two branches and all identity relationships |
+| FND-001 | P0 / M | Codex | DONE | — | Isolated per-suite DBs and synthetic fixture world; real handler tests; 36 tests pass, TypeScript passes, inherited DB target remains untouched. See docs/TESTING.md |
 | UI-001 | P1 / M | Antigravity | DONE | — | Extract shell/navigation/common feedback from page.tsx; preserve behavior; no backend changes; verify desktop/mobile navigation and dialogs |
-| SEC-001 | P0 / L | Codex | BACKLOG | FND-001 | C01; authenticate parent reports, explicit identity links, CBT ownership, branch/batch/related-ID checks and safe exam/content projections; negative route tests plus legitimate access |
+| SEC-001 | P0 / L | Codex | READY | FND-001 | C01; authenticate parent reports, explicit identity links, CBT ownership, branch/batch/related-ID checks and safe exam/content projections; negative route tests plus legitimate access |
 | UI-002 | P1 / M | Antigravity | BACKLOG | UI-001, C01 acknowledged | Session-driven role shell, real login/logout, authorized navigation and 401/403 states; remove production reliance on demo persona credentials |
 | FND-002 | P0 / M | Codex | BACKLOG | FND-001 | Separate cloud PostgreSQL/local SQLite plan, reviewed migrations, clean build/Compose configuration, secret handling, .dockerignore and CI; fresh isolated install/migrate/build smoke passes |
 | STU-001 | P1 / L | Codex | BACKLOG | SEC-001, FND-002 | C02; courses/batches/assignments, parent links, student edit/archive/import with preview/error output; AC-002 and scope tests |
@@ -47,4 +47,5 @@ After foundation, prioritize EXM/OMR/EVAL/INT/REP over operations/CMS/CBT/edge/A
 | Task | Owner | Claimed At | Base Commit | File Scope | Status | Next Checkpoint |
 |---|---|---|---|---|---|---|
 | UI-001 | Antigravity | 2026-09-08 23:25 Asia/Kolkata | `59f658c` | `src/app/page.tsx`, `src/components/**` | DONE | Complete; handoff written to docs/handoffs/UI-001-antigravity.md |
+| FND-001 | Codex | 2026-09-08 23:30 Asia/Kolkata | `263f4ba` | `vitest.config.ts`, `tests/**`, `docs/TESTING.md`, board and own handoff | DONE | SEC-001 and C01; code developed in separate codex/fnd-001-isolated-tests worktree |
 
