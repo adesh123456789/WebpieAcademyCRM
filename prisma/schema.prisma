@@ -624,6 +624,37 @@ model SyncQueueItem {
   createdAt  DateTime      @default(now())
 }
 
+model AIRequest {
+  id                    String   @id @default(uuid())
+  tenantId              String
+  task                  String
+  provider              String
+  model                 String
+  promptTemplateId      String
+  promptTemplateVersion String
+  inputHash             String
+  outcome               String
+  latencyMs             Int
+  createdById           String
+  createdAt             DateTime @default(now())
+
+  feedback              AIFeedback[]
+
+  @@index([tenantId, task, createdAt])
+}
+
+model AIFeedback {
+  id          String   @id @default(uuid())
+  aiRequestId String
+  verdict     String
+  actorId     String
+  note        String?
+  createdAt   DateTime @default(now())
+
+  aiRequest   AIRequest @relation(fields: [aiRequestId], references: [id], onDelete: Cascade)
+  @@index([aiRequestId, createdAt])
+}
+
 // -------------------------------------------------------------
 // ACADEMIC CONTENT VERSIONING (ACA-001)
 // -------------------------------------------------------------
