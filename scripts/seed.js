@@ -38,6 +38,44 @@ async function main() {
 
   const defaultPasswordHash = await bcrypt.hash("admin123", 10);
   const studentPasswordHash = await bcrypt.hash("student123", 10);
+  const superAdminPasswordHash = await bcrypt.hash("superadmin123", 10);
+
+  // 1b. Create Platform Root Tenant & Super Admin
+  const platformTenant = await prisma.tenant.create({
+    data: {
+      name: "WebPie Platform Operations",
+      code: "WEBPIE_HQ",
+      type: "PLATFORM",
+      status: "ACTIVE",
+      planId: "ENTERPRISE_PLATFORM",
+      locale: "en",
+      timezone: "Asia/Kolkata",
+      primaryColor: "#4f46e5",
+      customDomain: "admin.webpie.in",
+      domainVerified: true,
+    },
+  });
+
+  const platformBranch = await prisma.branch.create({
+    data: {
+      tenantId: platformTenant.id,
+      code: "HQ",
+      name: "Global HQ",
+      city: "Pune",
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      tenantId: platformTenant.id,
+      branchId: platformBranch.id,
+      name: "WebPie Super Admin",
+      email: "superadmin@webpie.in",
+      phone: "+91 9999988888",
+      passwordHash: superAdminPasswordHash,
+      role: "WEBPIE_ADMIN",
+    },
+  });
 
   // 2. Create Tenant 1: Apex IIT-JEE & NEET Academy (Full Institute)
   const tenant1 = await prisma.tenant.create({

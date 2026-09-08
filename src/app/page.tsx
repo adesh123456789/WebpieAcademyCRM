@@ -50,11 +50,31 @@ export default function WebPieAcademicOS() {
     | "attendance"
     | "website"
     | "parent"
+    | "superadmin"
   >("dashboard");
 
   const [currentRole, setCurrentRole] = useState<string>("OWNER");
   const [currentTenant, setCurrentTenant] = useState<string>("APEX_PUNE");
   const [currentBranch, setCurrentBranch] = useState<string>("Kothrud Campus");
+
+  // Super Admin & Auth State
+  const [tenantsList, setTenantsList] = useState<any[]>([]);
+  const [isProvisionModalOpen, setIsProvisionModalOpen] = useState<boolean>(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+  const [loginForm, setLoginForm] = useState({ email: "", password: "", error: "" });
+  const [provisionForm, setProvisionForm] = useState({
+    name: "",
+    code: "",
+    type: "INSTITUTE",
+    planId: "PRO_INSTITUTE",
+    city: "Pune",
+    address: "",
+    ownerName: "",
+    ownerEmail: "",
+    ownerPassword: "admin123",
+    ownerPhone: "",
+    primaryExam: "JEE_MAIN",
+  });
 
   // Data State
   const [students, setStudents] = useState<any[]>([]);
@@ -120,6 +140,7 @@ export default function WebPieAcademicOS() {
     loadFees();
     loadWebsite();
     loadParentPortal("260001", parentLang);
+    loadTenants();
   }, []);
 
   const showToast = (msg: string) => {
@@ -128,8 +149,86 @@ export default function WebPieAcademicOS() {
   };
 
   // -------------------------------------------------------------
-  // API LOADERS
+  // API LOADERS & AUTH HANDLERS
   // -------------------------------------------------------------
+  async function loadTenants() {
+    try {
+      const res = await fetch("/api/v1/admin/tenants");
+      if (res.ok) {
+        const data = await res.json();
+        setTenantsList(data.tenants || []);
+      }
+    } catch (e) {
+      console.error("Failed to load tenants:", e);
+    }
+  }
+
+  async function handleDirectLogin(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    setLoginForm((prev) => ({ ...prev, error: "" }));
+    try {
+      const res = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginForm.email,
+          password: loginForm.password,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setLoginForm((prev) => ({ ...prev, error: data.error || "Login failed" }));
+        return;
+      }
+
+      setCurrentRole(data.user.role);
+      setCurrentTenant(data.user.tenantCode);
+      setCurrentBranch(data.user.branchName);
+      setIsLoginModalOpen(false);
+      showToast(`Logged in successfully as ${data.user.name} (${data.user.role})!`);
+      if (data.user.role === "WEBPIE_ADMIN") {
+        setActiveTab("superadmin");
+      }
+    } catch (err: any) {
+      setLoginForm((prev) => ({ ...prev, error: err.message || "Network error" }));
+    }
+  }
+
+  async function handleProvisionInstitute(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/v1/admin/tenants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(provisionForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(`Provisioning error: ${data.error}`);
+        return;
+      }
+
+      showToast(`Institute '${data.tenant.name}' provisioned with Owner ${data.owner.email}!`);
+      setIsProvisionModalOpen(false);
+      loadTenants();
+      // Reset form
+      setProvisionForm({
+        name: "",
+        code: "",
+        type: "INSTITUTE",
+        planId: "PRO_INSTITUTE",
+        city: "Pune",
+        address: "",
+        ownerName: "",
+        ownerEmail: "",
+        ownerPassword: "admin123",
+        ownerPhone: "",
+        primaryExam: "JEE_MAIN",
+      });
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`);
+    }
+  }
   async function loadStudents() {
     try {
       const res = await fetch("/api/v1/students");
@@ -518,10 +617,14 @@ export default function WebPieAcademicOS() {
               value={currentRole}
               onChange={(e) => {
                 setCurrentRole(e.target.value);
+                if (e.target.value === "WEBPIE_ADMIN") {
+                  setActiveTab("superadmin");
+                }
                 showToast(`Role switched to ${e.target.value}`);
               }}
               className="bg-blue-950/80 border border-blue-800/80 text-blue-300 text-xs font-semibold px-3 py-1.5 rounded-lg focus:outline-none"
             >
+              <option value="WEBPIE_ADMIN">Super Admin (WebPie HQ)</option>
               <option value="OWNER">Institute Owner</option>
               <option value="TEACHER">Teacher (Prof. Kulkarni)</option>
               <option value="COUNSELLOR">Admissions Counsellor</option>
@@ -529,6 +632,14 @@ export default function WebPieAcademicOS() {
               <option value="STUDENT">Student (Aarav Deshmukh)</option>
               <option value="PARENT">Parent Portal View</option>
             </select>
+
+            <button
+              onClick={() => setIsLoginModalOpen(true)}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-700 transition"
+            >
+              <UserCheck className="w-3.5 h-3.5 text-blue-400" />
+              Direct Login
+            </button>
           </div>
         </div>
       </header>
@@ -711,6 +822,25 @@ export default function WebPieAcademicOS() {
           >
             <Share2 className="w-4 h-4" />
             Multilingual Parent Portal
+          </button>
+
+          <div className="text-[11px] font-semibold tracking-wider text-indigo-400 uppercase px-3 py-2 mt-2">
+            Platform Operations
+          </div>
+
+          <button
+            onClick={() => {
+              setActiveTab("superadmin");
+              setCurrentRole("WEBPIE_ADMIN");
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition ${
+              activeTab === "superadmin"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-semibold"
+                : "text-indigo-400 hover:text-indigo-200 hover:bg-slate-900"
+            }`}
+          >
+            <Building className="w-4 h-4" />
+            Super Admin Hub
           </button>
         </aside>
 
@@ -1852,6 +1982,135 @@ export default function WebPieAcademicOS() {
               )}
             </div>
           )}
+
+          {/* 15. SUPER ADMIN HUB (WebPie HQ) */}
+          {activeTab === "superadmin" && (
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Building className="w-5 h-5 text-indigo-400" />
+                    WebPie Super Admin Operations Hub
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Provision institutes, coaching academies, and individual teachers; configure tenant licenses, and inspect node health.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsProvisionModalOpen(true)}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow-lg shadow-indigo-600/30"
+                >
+                  <Plus className="w-4 h-4" />
+                  + Provision New Institute / Academy
+                </button>
+              </div>
+
+              {/* Platform Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-slate-950/70 border border-slate-800/80 p-5 rounded-xl">
+                  <span className="text-xs font-medium text-slate-400 uppercase">Registered Institutes</span>
+                  <div className="text-3xl font-bold text-indigo-400 mt-1">{tenantsList.length}</div>
+                  <div className="text-[11px] text-slate-400 mt-1">Multi-Tenant Isolated</div>
+                </div>
+                <div className="bg-slate-950/70 border border-slate-800/80 p-5 rounded-xl">
+                  <span className="text-xs font-medium text-slate-400 uppercase">Platform Active Students</span>
+                  <div className="text-3xl font-bold text-white mt-1">
+                    {tenantsList.reduce((acc, t) => acc + (t.studentsCount || 0), 0) + students.length}
+                  </div>
+                  <div className="text-[11px] text-emerald-400 mt-1">100% Enrolled in Batches</div>
+                </div>
+                <div className="bg-slate-950/70 border border-slate-800/80 p-5 rounded-xl">
+                  <span className="text-xs font-medium text-slate-400 uppercase">Total Assessment Volume</span>
+                  <div className="text-3xl font-bold text-blue-400 mt-1">
+                    {tenantsList.reduce((acc, t) => acc + (t.examsCount || 0), 0) + exams.length}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">JEE / NEET / CET Papers</div>
+                </div>
+                <div className="bg-slate-950/70 border border-slate-800/80 p-5 rounded-xl">
+                  <span className="text-xs font-medium text-slate-400 uppercase">Academic Node Runtimes</span>
+                  <div className="text-3xl font-bold text-emerald-400 mt-1">Active</div>
+                  <div className="text-[11px] text-slate-400 mt-1">Hardware Auto-Tuned</div>
+                </div>
+              </div>
+
+              {/* Tenants Directory Table */}
+              <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl overflow-hidden">
+                <div className="bg-slate-900/90 px-6 py-3 border-b border-slate-800 flex items-center justify-between text-xs">
+                  <span className="font-bold text-white">Registered Coaching Institutes & Academies</span>
+                  <button
+                    onClick={loadTenants}
+                    className="text-indigo-400 hover:text-indigo-300 font-medium"
+                  >
+                    Refresh Directory
+                  </button>
+                </div>
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                    <tr>
+                      <th className="px-5 py-3">Institute / Academy</th>
+                      <th className="px-5 py-3">Type</th>
+                      <th className="px-5 py-3">Unique Code</th>
+                      <th className="px-5 py-3">Director / Owner</th>
+                      <th className="px-5 py-3">Campuses</th>
+                      <th className="px-5 py-3">Students</th>
+                      <th className="px-5 py-3">Status</th>
+                      <th className="px-5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {tenantsList.map((t) => (
+                      <tr key={t.id} className="hover:bg-slate-900/40 transition">
+                        <td className="px-5 py-3 font-semibold text-white">
+                          <div>{t.name}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            {t.customDomain || `${t.code.toLowerCase()}.webpie.in`}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                              t.type === "INSTITUTE"
+                                ? "bg-blue-950 text-blue-300 border border-blue-800"
+                                : t.type === "PLATFORM"
+                                ? "bg-purple-950 text-purple-300 border border-purple-800"
+                                : "bg-emerald-950 text-emerald-300 border border-emerald-800"
+                            }`}
+                          >
+                            {t.type}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 font-mono font-bold text-blue-400">{t.code}</td>
+                        <td className="px-5 py-3 text-slate-300">
+                          <div>{t.ownerName}</div>
+                          <div className="text-[11px] text-slate-400">{t.ownerEmail}</div>
+                        </td>
+                        <td className="px-5 py-3 text-slate-300 font-medium">{t.branchesCount || 1} branch</td>
+                        <td className="px-5 py-3 font-bold text-white">{t.studentsCount || 0}</td>
+                        <td className="px-5 py-3">
+                          <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded text-[11px] font-semibold">
+                            {t.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <button
+                            onClick={() => {
+                              setCurrentTenant(t.code);
+                              setCurrentRole("OWNER");
+                              setActiveTab("dashboard");
+                              showToast(`Switched workspace context to: ${t.name}`);
+                            }}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded border border-slate-700 transition"
+                          >
+                            Enter Institute
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
@@ -2031,6 +2290,270 @@ export default function WebPieAcademicOS() {
                 Save Audited Override
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PROVISION NEW INSTITUTE MODAL (SUPER ADMIN) */}
+      {isProvisionModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-bold text-white text-base flex items-center gap-2">
+                  <Building className="w-4 h-4 text-indigo-400" />
+                  Provision New Institute / Academy
+                </h3>
+                <p className="text-xs text-slate-400">Creates isolated tenant database records, first branch, and owner account.</p>
+              </div>
+              <button onClick={() => setIsProvisionModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleProvisionInstitute} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-medium">Institute / Academy Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Chaitanya IIT Academy"
+                    value={provisionForm.name}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, name: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-medium">Unique Subdomain Code *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. CHAITANYA_PUNE"
+                    value={provisionForm.code}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, code: e.target.value.toUpperCase() })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-medium">Operating Model</label>
+                  <select
+                    value={provisionForm.type}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, type: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="INSTITUTE">Coaching Institute (Multi-Branch)</option>
+                    <option value="INDIVIDUAL_TEACHER">Individual Teacher (Single Classroom)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-medium">Primary Exam Focus</label>
+                  <select
+                    value={provisionForm.primaryExam}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, primaryExam: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="JEE_MAIN">JEE Main & Advanced</option>
+                    <option value="NEET">NEET (UG Medical)</option>
+                    <option value="MHT_CET">MHT-CET (Maharashtra)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-medium">Headquarters City</label>
+                  <input
+                    type="text"
+                    value={provisionForm.city}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, city: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-medium">License Tier</label>
+                  <select
+                    value={provisionForm.planId}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, planId: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="PRO_INSTITUTE">Pro Institute (Unlimited)</option>
+                    <option value="ENTERPRISE">Enterprise Multi-Campus</option>
+                    <option value="TEACHER_PRO">Teacher Pro (Single Branch)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-800">
+                <div className="font-semibold text-slate-200 mb-2">Director / Owner Credentials</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-slate-300 font-medium">Owner Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Dr. P. K. Sharma"
+                      value={provisionForm.ownerName}
+                      onChange={(e) => setProvisionForm({ ...provisionForm, ownerName: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-300 font-medium">Owner Login Email *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. director@chaitanya.com"
+                      value={provisionForm.ownerEmail}
+                      onChange={(e) => setProvisionForm({ ...provisionForm, ownerEmail: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div className="space-y-1">
+                    <label className="text-slate-300 font-medium">Default Password</label>
+                    <input
+                      type="text"
+                      value={provisionForm.ownerPassword}
+                      onChange={(e) => setProvisionForm({ ...provisionForm, ownerPassword: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-300 font-medium">Contact Phone</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 9822114455"
+                      value={provisionForm.ownerPhone}
+                      onChange={(e) => setProvisionForm({ ...provisionForm, ownerPhone: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsProvisionModalOpen(false)}
+                  className="bg-slate-800 text-slate-300 px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2 rounded-lg shadow-lg shadow-indigo-600/30 transition"
+                >
+                  Provision Institute Now
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DIRECT LOGIN / ROLE AUTHENTICATION MODAL */}
+      {isLoginModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-bold text-white text-base">Direct Account Login</h3>
+                <p className="text-xs text-slate-400">Authenticate with email and password.</p>
+              </div>
+              <button onClick={() => setIsLoginModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Demo Fill Buttons */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-slate-400 uppercase font-semibold">Quick Switch Accounts:</label>
+              <div className="grid grid-cols-2 gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setLoginForm({ email: "superadmin@webpie.in", password: "superadmin123", error: "" })}
+                  className="bg-indigo-950 text-indigo-300 border border-indigo-800 p-2 rounded text-left hover:bg-indigo-900/60"
+                >
+                  <div className="font-bold">Super Admin (HQ)</div>
+                  <div className="text-[10px] text-indigo-400">superadmin@webpie.in</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginForm({ email: "owner@apexiit.com", password: "admin123", error: "" })}
+                  className="bg-blue-950 text-blue-300 border border-blue-800 p-2 rounded text-left hover:bg-blue-900/60"
+                >
+                  <div className="font-bold">Institute Owner</div>
+                  <div className="text-[10px] text-blue-400">owner@apexiit.com</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginForm({ email: "teacher.physics@apexiit.com", password: "admin123", error: "" })}
+                  className="bg-slate-900 text-slate-300 border border-slate-800 p-2 rounded text-left hover:bg-slate-800"
+                >
+                  <div className="font-bold">Physics Teacher</div>
+                  <div className="text-[10px] text-slate-400">teacher.physics@...</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginForm({ email: "deshmukh@physics.com", password: "admin123", error: "" })}
+                  className="bg-emerald-950 text-emerald-300 border border-emerald-800 p-2 rounded text-left hover:bg-emerald-900/60"
+                >
+                  <div className="font-bold">Indiv. Teacher</div>
+                  <div className="text-[10px] text-emerald-400">deshmukh@physics.com</div>
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleDirectLogin} className="space-y-3 pt-2 text-xs">
+              {loginForm.error && (
+                <div className="bg-rose-950/60 border border-rose-800 text-rose-300 p-2 rounded text-xs">
+                  {loginForm.error}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-slate-300 font-medium">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-300 font-medium">Password</label>
+                <input
+                  type="password"
+                  required
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLoginModalOpen(false)}
+                  className="bg-slate-800 text-slate-300 px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2 rounded-lg transition"
+                >
+                  Sign In
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
