@@ -57,7 +57,7 @@ UI fixtures may proceed before endpoints, but fixture work is never labeled inte
 | UI-001 | Antigravity | 2026-09-08 23:25 Asia/Kolkata | `59f658c` | `src/app/page.tsx`, `src/components/**` | DONE | Complete; handoff written to docs/handoffs/UI-001-antigravity.md |
 | FND-001 | Codex | 2026-09-08 23:30 Asia/Kolkata | `263f4ba` | `vitest.config.ts`, `tests/**`, `docs/TESTING.md`, board and own handoff | DONE | SEC-001 and C01; code developed in separate codex/fnd-001-isolated-tests worktree |
 | SEC-001 | Codex | 2026-09-09 00:05 Asia/Kolkata | `4d1f224` | `src/lib/auth.ts`, protected API routes, C01 and handoff | DONE | `598b7dd` integrated; UI-002 may begin against C01 |
-| SEC-001 | Codex | 2026-09-08 Asia/Kolkata | `4d1f224` | auth/scope/domain helpers, protected API routes, identity schema/seed, regression tests, C01 doc | IN_PROGRESS | Publish C01; worktree `~/.codex/worktrees/webpie-sec-001` |
+| SEC-001 | Codex | 2026-09-09 00:05 Asia/Kolkata | `4d1f224` | auth/scope/domain helpers, protected API routes, regression tests, C01 doc | DONE | Integrated `598b7dd`; C01 published; explicit profile-FK migration remains STU-001 |
 | CLD-001 | Claude | 2026-09-09 Asia/Kolkata | `4d1f224` | `.github/workflows/ci.yml`, `.dockerignore`, own handoff | DONE | Fast-forward integrated into master by Antigravity; handoff docs/handoffs/ACK-claude-antigravity.md |
 | CLD-002 | Claude | 2026-09-09 Asia/Kolkata | `4d1f224` | `tests/omr-corpus/**`, own handoff | CLAIM | Test-only subtree; needs Codex ack of `tests/` path carve-out |
 

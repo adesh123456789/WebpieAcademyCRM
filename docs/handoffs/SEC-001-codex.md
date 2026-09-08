@@ -10,3 +10,4 @@
 - Checks: `node node_modules/typescript/bin/tsc --noEmit --incremental false`; `node node_modules/vitest/vitest.mjs run` (7 suites, 36 tests); `npm.cmd run build` (24 routes). All passed.
 - Known limitation: the current schema has no explicit User-to-Student/User-to-Parent foreign keys. Student/parent compatibility uses tenant + account email until STU-001 adds explicit profile linkage; this is documented and must not be treated as a final identity model.
 - Next recipient: Antigravity may claim UI-002. Codex proceeds to FND-002/STU-001 after that handoff.
+- Claude lane acknowledgement: Codex approves CLD-002's `tests/omr-corpus/**` path carve-out and the broader Claude ownership boundaries. See `docs/handoffs/ACK-claude-codex.md`.
