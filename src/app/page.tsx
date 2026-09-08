@@ -62,6 +62,7 @@ import {
   PairNodeModal,
   StudentImportModal,
   StudentParentLinkModal,
+  ExamWizardModal,
   LoginView,
   AuthenticatedUser,
   SuperAdminView,
@@ -175,6 +176,7 @@ export default function WebPieAcademicOS() {
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   const [isParentLinkModalOpen, setIsParentLinkModalOpen] = useState<boolean>(false);
   const [selectedStudentForParentLink, setSelectedStudentForParentLink] = useState<any>(null);
+  const [isExamWizardOpen, setIsExamWizardOpen] = useState<boolean>(false);
 
   const [isRecordFeeModalOpen, setIsRecordFeeModalOpen] = useState<boolean>(false);
   const [feeForm, setFeeForm] = useState({
@@ -1080,6 +1082,7 @@ export default function WebPieAcademicOS() {
             <ExamsView
               exams={exams}
               onFetchArtifact={fetchArtifact}
+              onOpenCreateExamModal={() => setIsExamWizardOpen(true)}
             />
           )}
 
@@ -1288,6 +1291,19 @@ export default function WebPieAcademicOS() {
           );
           showToast("Parent linkage updated successfully.");
         }}
+      />
+
+      <ExamWizardModal
+        isOpen={isExamWizardOpen}
+        onClose={() => setIsExamWizardOpen(false)}
+        onExamCreated={(newExam) => {
+          setExams((prev) => [newExam, ...prev]);
+          showToast(`Exam "${newExam.title || newExam.code}" finalized and locked.`);
+        }}
+        availableQuestions={[]}
+        batches={[]}
+        currentTenant={currentTenant}
+        onFetchArtifact={fetchArtifact}
       />
     </div>
   );
