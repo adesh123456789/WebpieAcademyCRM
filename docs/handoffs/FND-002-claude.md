@@ -2,7 +2,7 @@
 
 - **Task / owner**: FND-002 infra portion / Claude. Pairs with `docs/handoffs/FND-002-codex.md` (Codex owns `prisma/schema.prisma` + the SQLite->PostgreSQL provider/migration path).
 - **Timestamp + timezone**: 2026-09-09 Asia/Kolkata
-- **Status**: REVIEW (infra portion complete; container smoke unverified until a git remote exists)
+- **Status**: ACCEPTED (combined FND-002 integrated by Codex; container smoke remains CI-only)
 - **Base commit / branch / worktree**: base `5f0b871` on `master` active checkout. New files + infra-only edits; no `prisma/`, route, `src/`, `package.json` or lockfile changes.
 - **Files owned or changed**:
   - `.env.example` - replaced all baked secrets with empty placeholders + generation hints (`openssl rand`), added `POSTGRES_USER/PASSWORD/DB`, `UPLOAD_DIR`. No real secret value remains in the repo.
@@ -19,6 +19,10 @@
   - `npx tsc --noEmit` -> exit 0.
   - `npm test` -> 9 files, 43 tests passed.
   - Docker is not installed on this machine, so `docker build` / `docker compose config` / the smoke job were **not** run locally. They execute on the first GitHub Actions run once a remote is configured (same gap as CLD-001).
+- **Codex integration**:
+  - Added `prisma/schema.postgresql.prisma`, a provider-matched mirror of the local SQLite schema, plus `prisma/migrations/0001_initial/migration.sql` generated from it.
+  - Docker builds the application with hermetic SQLite, then regenerates the shipped Prisma client for PostgreSQL. The entrypoint selects PostgreSQL migrations for `postgresql://` / `postgres://` URLs and keeps SQLite `db push` for local/test smoke runs.
+  - `prisma/schema.postgresql.prisma` validates with Prisma 5.22.0; the full Vitest suite (9 files / 43 tests) remains green.
 - **Known gaps / blockers**:
   - Container smoke unverified locally - needs a CI run or a machine with Docker.
   - Provider still SQLite in `prisma/schema.prisma`. Per the coordination handoff this stays until Codex verifies the Prisma client strategy and adds the PostgreSQL migration path. The compose default `DATABASE_URL` points at postgres, so `docker compose up` needs Codex's provider work (or an explicit `DATABASE_URL=file:...` override) to be fully functional; the standalone `docker build` + SQLite smoke is provider-independent.

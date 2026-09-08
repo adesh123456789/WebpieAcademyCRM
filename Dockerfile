@@ -20,7 +20,8 @@ ENV DATABASE_URL="file:/tmp/build.db"
 
 RUN npx prisma generate \
   && npx prisma db push --skip-generate \
-  && npm run build
+  && npm run build \
+  && DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate --schema prisma/schema.postgresql.prisma
 
 # Stage 3: Runner
 FROM node:20-alpine AS runner

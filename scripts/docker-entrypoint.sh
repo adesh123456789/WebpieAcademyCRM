@@ -5,13 +5,16 @@
 # PostgreSQL migration path in prisma/).
 set -e
 
-if [ -d "prisma/migrations" ] && [ -n "$(ls -A prisma/migrations 2>/dev/null)" ]; then
-  echo "[entrypoint] applying migrations (prisma migrate deploy)"
-  npx prisma migrate deploy
-else
-  echo "[entrypoint] no migrations found - syncing schema (prisma db push)"
-  npx prisma db push --skip-generate
-fi
+case "${DATABASE_URL:-}" in
+  postgresql://*|postgres://*)
+    echo "[entrypoint] applying PostgreSQL migrations"
+    npx prisma migrate deploy --schema prisma/schema.postgresql.prisma
+    ;;
+  *)
+    echo "[entrypoint] syncing SQLite schema"
+    npx prisma db push --skip-generate --schema prisma/schema.prisma
+    ;;
+esac
 
 echo "[entrypoint] starting server"
 exec npm run start

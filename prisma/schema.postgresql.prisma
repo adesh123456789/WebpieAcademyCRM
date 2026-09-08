@@ -1,0 +1,626 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// IDENTITY, MULTI-TENANCY & RBAC (PRD Sec 5, 7, 34)
+// -------------------------------------------------------------
+
+model Tenant {
+  id              String   @id @default(uuid())
+  type            String   @default("INSTITUTE") // "INSTITUTE" | "INDIVIDUAL_TEACHER"
+  name            String
+  code            String   @unique
+  status          String   @default("ACTIVE") // "ACTIVE" | "ONBOARDING" | "SUSPENDED"
+  planId          String   @default("STANDARD")
+  locale          String   @default("en")
+  timezone        String   @default("Asia/Kolkata")
+  logoUrl         String?
+  primaryColor    String?  @default("#1870f5")
+  customDomain    String?  @unique
+  domainVerified  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branches        Branch[]
+  users           User[]
+  courses         Course[]
+  students        Student[]
+  parents         Parent[]
+  questions       Question[]
+  exams           Exam[]
+  omrJobs         OMRJob[]
+  leads           CRMLead[]
+  feePlans        FeePlan[]
+  feePayments     FeePayment[]
+  websiteSections WebsiteSection[]
+  interventions   Intervention[]
+  auditLogs       AuditLog[]
+  academicNodes   AcademicNode[]
+}
+
+model Branch {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  address     String?
+  city        String?  @default("Pune")
+  contact     String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  batches     Batch[]
+  students    Student[]
+  leads       CRMLead[]
+  academicNodes AcademicNode[]
+
+  @@unique([tenantId, code])
+}
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId     String?
+  branch       Branch?   @relation(fields: [branchId], references: [id])
+  name         String
+  email        String
+  phone        String?
+  passwordHash String
+  role         String    // "OWNER" | "BRANCH_ADMIN" | "TEACHER" | "COUNSELLOR" | "ACCOUNTANT" | "STUDENT" | "PARENT" | "WEBPIE_ADMIN"
+  status       String    @default("ACTIVE")
+  avatarUrl    String?
+  scopes       String?   // JSON permissions & batch assignments
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  auditLogs    AuditLog[]
+
+  @@unique([tenantId, email])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String   // "PERMISSION_CHANGE", "RESULT_UNLOCK", "OMR_OVERRIDE", "FEE_REVERSAL", "PAYMENT_RECORDED", "EXAM_FINALIZED"
+  entityType String
+  entityId   String
+  details    String?  // JSON snapshot
+  ipAddress  String?
+  timestamp  DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// STUDENT 360, BATCHES & ENROLLMENT (PRD Sec 9, 34)
+// -------------------------------------------------------------
+
+model Course {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String    // e.g. "2-Year JEE Target 2026"
+  code         String
+  examType     String    // "JEE_MAIN" | "JEE_ADVANCED" | "NEET" | "MHT_CET"
+  gradeClass   String    // "11" | "12" | "DROPPER" | "FOUNDATION"
+  academicYear String    // e.g. "2025-2026"
+  status       String    @default("ACTIVE")
+  createdAt    DateTime  @default(now())
+
+  batches      Batch[]
+  enrollments  Enrollment[]
+}
+
+model Batch {
+  id           String    @id @default(uuid())
+  tenantId     String
+  branchId     String
+  branch       Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  courseId     String
+  course       Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name         String    // e.g. "Batch A - Morning"
+  code         String
+  startDate    DateTime?
+  endDate      DateTime?
+  schedule     String?   // e.g. "Mon-Wed-Fri 08:00-11:00"
+  status       String    @default("ACTIVE")
+  createdAt    DateTime  @default(now())
+
+  enrollments  Enrollment[]
+  attendanceSessions AttendanceSession[]
+
+  @@unique([branchId, code])
+}
+
+model Student {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  rollNumber      String
+  name            String
+  email           String?
+  phone           String?
+  gender          String?  @default("OTHER")
+  dob             String?
+  school          String?
+  targetExam      String   @default("JEE_MAIN") // "JEE_MAIN" | "JEE_ADVANCED" | "NEET" | "MHT_CET"
+  targetYear      Int      @default(2026)
+  status          String   @default("ACTIVE") // "ACTIVE" | "ARCHIVED" | "ALUMNI"
+  metadata        String?  // JSON
+  createdAt       DateTime @default(now())
+
+  enrollments     Enrollment[]
+  parentLinks     StudentParentLink[]
+  examResults     ExamResult[]
+  masteryScores   MasteryScore[]
+  masteryEvidence MasteryEvidence[]
+  cbtAttempts     CBTAttempt[]
+  feePlans        FeePlan[]
+  feePayments     FeePayment[]
+  attendanceRecords AttendanceRecord[]
+
+  @@unique([tenantId, rollNumber])
+}
+
+model Parent {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  email       String?
+  phone       String
+  relationship String  @default("FATHER") // "FATHER" | "MOTHER" | "GUARDIAN"
+  occupation  String?
+  createdAt   DateTime @default(now())
+
+  studentLinks StudentParentLink[]
+
+  @@unique([tenantId, phone])
+}
+
+model StudentParentLink {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parentId    String
+  parent      Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  isPrimary   Boolean  @default(true)
+  accessFlags String?  // JSON: {"fees": true, "reports": true, "attendance": true}
+
+  @@unique([studentId, parentId])
+}
+
+model Enrollment {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  batchId    String
+  batch      Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  status     String   @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "DROPPED"
+  enrolledAt DateTime @default(now())
+
+  @@unique([studentId, batchId])
+}
+
+// -------------------------------------------------------------
+// ACADEMIC KNOWLEDGE GRAPH & QUESTION BANK (PRD Sec 23, 24, 34)
+// -------------------------------------------------------------
+
+model CurriculumNode {
+  id          String   @id @default(uuid())
+  tenantId    String?  // NULL = WebPie Platform master graph; string = Tenant Custom
+  examType    String   // "JEE_MAIN" | "JEE_ADVANCED" | "NEET" | "MHT_CET"
+  classLevel  String   // "11" | "12"
+  subject     String   // "PHYSICS" | "CHEMISTRY" | "MATHEMATICS" | "BIOLOGY"
+  unit        String?  // e.g. "Mechanics"
+  chapter     String   // e.g. "Laws of Motion"
+  topic       String   // e.g. "Friction"
+  subtopic    String?  // e.g. "Static Friction"
+  concept     String   // e.g. "Limiting Friction" (Mastery Unit)
+  skill       String?  // e.g. "Free-Body Diagram Application"
+  code        String   @unique
+  name        String
+  description String?
+  weightage   Float?   @default(1.0)
+  version     String   @default("2026.1")
+  createdAt   DateTime @default(now())
+}
+
+model Question {
+  id                 String   @id @default(uuid())
+  tenantId           String?  // NULL = Global Platform bank; String = Tenant Private
+  tenant             Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code               String   @unique
+  ownerScope         String   @default("PLATFORM") // "PLATFORM" | "TENANT_PRIVATE" | "USER_DRAFT"
+  subject            String
+  chapter            String
+  topic              String
+  concept            String
+  type               String   @default("SINGLE_CORRECT") // "SINGLE_CORRECT" | "MULTIPLE_CORRECT" | "NUMERICAL" | "ASSERTION_REASON"
+  declaredDifficulty String   @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
+  aiDifficulty       String?
+  actualDifficulty   Float?   // Computed statistically from real student attempts (0.0 to 1.0)
+  body               String   // Rich Text + LaTeX math: e.g. $F = \mu_s N$
+  options            String   // JSON array of options: [{"id":"A","text":"..."},{"id":"B","text":"..."}]
+  correctAnswer      String   // JSON: "A" or ["A","C"] or 15.5
+  numericalTolerance Float?   @default(0.0) // Allowed numerical delta
+  solution           String   // Rich step-by-step explanation + LaTeX
+  source             String   @default("WEBPIE") // "PYQ" | "TEACHER" | "INSTITUTE" | "AI"
+  sourceYear         Int?
+  sourceExam         String?  // e.g. "JEE_MAIN_2024"
+  status             String   @default("VERIFIED") // "DRAFT" | "AI_CANDIDATE" | "REVIEWED" | "VERIFIED" | "ARCHIVED"
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  examQuestions      ExamQuestion[]
+}
+
+// -------------------------------------------------------------
+// EXAM BUILDER, OMR & EVALUATION (PRD Sec 14, 15, 25-27)
+// -------------------------------------------------------------
+
+model Exam {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId        String?
+  title           String   // e.g. "JEE Main Major Test #01"
+  code            String
+  examType        String   // "JEE_MAIN" | "JEE_ADVANCED" | "NEET" | "MHT_CET" | "INSTITUTE_CUSTOM"
+  academicYear    String   @default("2025-2026")
+  batchIds        String   // JSON array of target batch IDs
+  durationMinutes Int      @default(180)
+  totalMarks      Float    @default(300.0)
+  totalQuestions  Int      @default(75)
+  status          String   @default("DRAFT") // "DRAFT" | "FINALIZED" | "CONDUCTED" | "EVALUATED"
+  blueprint       String   // JSON: breakdown of subjects, question counts, difficulty targets
+  markingRules    String   // JSON: {"correct": 4, "incorrect": -1, "unattempted": 0, "allowPartial": false}
+  isCbtEnabled    Boolean  @default(false)
+  version         Int      @default(1)
+  createdById     String?
+  finalizedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  examQuestions   ExamQuestion[]
+  omrJobs         OMRJob[]
+  examResults     ExamResult[]
+  cbtAttempts     CBTAttempt[]
+
+  @@unique([tenantId, code])
+}
+
+model ExamQuestion {
+  id             String   @id @default(uuid())
+  examId         String
+  exam           Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  sectionName    String   // "Physics - Section A", "Section B (Numerical)"
+  orderIndex     Int
+  marksCorrect   Float    @default(4.0)
+  marksIncorrect Float    @default(-1.0)
+  paperSet       String   @default("A") // "A" | "B" | "C" | "D"
+
+  @@unique([examId, questionId, paperSet])
+}
+
+model OMRJob {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  examId          String
+  exam            Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  batchId         String?
+  status          String   @default("QUEUED") // "QUEUED" | "PROCESSING" | "REVIEW_REQUIRED" | "FINALIZED" | "FAILED"
+  totalSheets     Int      @default(0)
+  processedSheets Int      @default(0)
+  flaggedSheets   Int      @default(0)
+  createdAt       DateTime @default(now())
+  finalizedAt     DateTime?
+
+  scans           OMRScan[]
+}
+
+model OMRScan {
+  id                 String   @id @default(uuid())
+  jobId              String
+  job                OMRJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  studentId          String?
+  detectedRollNumber String?
+  sheetImageUrl      String?
+  rotationAngle      Float    @default(0.0)
+  confidenceScore    Float    @default(1.0)
+  status             String   @default("CONFIDENT") // "CONFIDENT" | "AMBIGUOUS" | "UNMATCHED" | "OVERRIDDEN"
+  detectedResponses  String   // JSON: {"1": "A", "2": "C", ...}
+  verifiedResponses  String?  // JSON: {"1": "B", ...} after teacher override
+  ambiguityFlags     String?  // JSON: [{"question": 5, "reason": "DOUBLE_MARK", "cropUrl": "..."}]
+  verifiedById       String?
+  verifiedAt         DateTime?
+  createdAt          DateTime @default(now())
+}
+
+model ExamResult {
+  id                     String   @id @default(uuid())
+  tenantId               String
+  examId                 String
+  exam                   Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId              String
+  student                Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  batchId                String?
+  score                  Float
+  maximumMarks           Float
+  accuracyPercentage     Float
+  totalAttempted         Int
+  totalCorrect           Int
+  totalIncorrect         Int
+  totalUnattempted       Int
+  negativeMarksDeducted  Float    @default(0.0)
+  cohortRank             Int
+  cohortPercentile       Float
+  subjectScores          String   // JSON: {"PHYSICS": {"score": 80, "max": 100}, ...}
+  questionResponses      String   // JSON: [{"qId": "...", "status": "CORRECT", "marks": 4, "userAnswer": "A", "correctAnswer": "A"}]
+  version                Int      @default(1)
+  isFinal                Boolean  @default(true)
+  computedAt             DateTime @default(now())
+
+  @@unique([examId, studentId, version])
+}
+
+// -------------------------------------------------------------
+// MASTERY & INTERVENTION WORKSPACE (PRD Sec 28, 29, 34)
+// -------------------------------------------------------------
+
+model MasteryScore {
+  id               String   @id @default(uuid())
+  tenantId         String
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject          String
+  chapter          String
+  concept          String   // Primary unit of mastery
+  score            Float    // 0.0 to 100.0
+  state            String   // "NOT_ASSESSED" | "CRITICAL" | "WEAK" | "DEVELOPING" | "PROFICIENT" | "MASTERED"
+  confidence       Float    @default(1.0) // confidence factor based on number of questions attempted
+  totalAttempts    Int      @default(0)
+  correctAttempts  Int      @default(0)
+  algorithmVersion String   @default("v1.0")
+  updatedAt        DateTime @updatedAt
+
+  @@unique([studentId, concept])
+}
+
+model MasteryEvidence {
+  id               String   @id @default(uuid())
+  tenantId         String
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  concept          String
+  examId           String
+  questionId       String
+  wasCorrect       Boolean
+  difficultyWeight Float    @default(1.0)
+  recencyWeight    Float    @default(1.0)
+  timestamp        DateTime @default(now())
+}
+
+model Intervention {
+  id                String    @id @default(uuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId          String?
+  title             String    // e.g. "Remedial Ladder: Friction & Newton's 2nd Law"
+  concept           String
+  studentIds        String    // JSON array of student IDs clustered into this intervention
+  priority          String    @default("HIGH") // "CRITICAL" | "HIGH" | "MEDIUM"
+  status            String    @default("DETECTED") // "DETECTED" | "ASSIGNED" | "IN_PROGRESS" | "RETEST_SCHEDULED" | "RESOLVED"
+  practiceLadder    String?   // JSON: list of foundation, application, exam questions
+  worksheetPdfUrl   String?
+  miniRetestExamId  String?
+  beforeMasteryAvg  Float?
+  afterMasteryAvg   Float?
+  createdById       String?
+  resolvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+}
+
+// -------------------------------------------------------------
+// OPERATIONS: CRM, FEES, ATTENDANCE & CMS (PRD Sec 10-13, 21)
+// -------------------------------------------------------------
+
+model CRMLead {
+  id                 String    @id @default(uuid())
+  tenantId           String
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId           String
+  branch             Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name               String
+  phone              String
+  email              String?
+  source             String    @default("WALK_IN") // "WALK_IN" | "WEBSITE" | "REFERRAL" | "SOCIAL"
+  stage              String    @default("ENQUIRY") // "ENQUIRY" | "FOLLOW_UP" | "DEMO" | "ADMISSION" | "LOST"
+  courseInterest     String?
+  examTarget         String?
+  counsellorId       String?
+  nextFollowUpAt     DateTime?
+  notes              String?   // JSON timeline of interaction notes
+  convertedStudentId String?
+  lostReason         String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model FeePlan {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  grossAmount        Float
+  discountAmount     Float    @default(0.0)
+  scholarshipAmount  Float    @default(0.0)
+  netAmount          Float
+  notes              String?
+  createdAt          DateTime @default(now())
+
+  installments       FeeInstallment[]
+  payments           FeePayment[]
+}
+
+model FeeInstallment {
+  id                String   @id @default(uuid())
+  feePlanId         String
+  feePlan           FeePlan  @relation(fields: [feePlanId], references: [id], onDelete: Cascade)
+  installmentNumber Int
+  dueDate           DateTime
+  amount            Float
+  paidAmount        Float    @default(0.0)
+  status            String   @default("PENDING") // "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE"
+}
+
+model FeePayment {
+  id             String    @id @default(uuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  feePlanId      String
+  feePlan        FeePlan   @relation(fields: [feePlanId], references: [id], onDelete: Cascade)
+  receiptNumber  String    @unique
+  amount         Float
+  paymentMode    String    @default("UPI") // "CASH" | "UPI" | "CHEQUE" | "BANK_TRANSFER"
+  transactionRef String?
+  status         String    @default("SUCCESS") // "SUCCESS" | "REVERSED"
+  remarks        String?
+  collectedById  String?
+  paidAt         DateTime  @default(now())
+}
+
+model AttendanceSession {
+  id           String   @id @default(uuid())
+  tenantId     String
+  branchId     String
+  batchId      String
+  batch        Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  sessionDate  String   // "YYYY-MM-DD"
+  startTime    String?
+  endTime      String?
+  topicCovered String?
+  takenById    String?
+  createdAt    DateTime @default(now())
+
+  records      AttendanceRecord[]
+
+  @@unique([batchId, sessionDate])
+}
+
+model AttendanceRecord {
+  id        String            @id @default(uuid())
+  sessionId String
+  session   AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status    String            @default("PRESENT") // "PRESENT" | "ABSENT" | "LATE" | "EXCUSED"
+  source    String            @default("MANUAL") // "MANUAL" | "RFID" | "BIOMETRIC"
+  markedAt  DateTime          @default(now())
+
+  @@unique([sessionId, studentId])
+}
+
+// -------------------------------------------------------------
+// WEBSITE CMS & CBT SIMULATOR (PRD Sec 18, 21, 37)
+// -------------------------------------------------------------
+
+model WebsiteSection {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sectionKey String   // "HERO" | "ABOUT" | "COURSES" | "FACULTY" | "TOPPERS" | "TESTIMONIALS" | "CONTACT" | "FAQ"
+  title      String?
+  subtitle   String?
+  content    String   // JSON structured section content
+  orderIndex Int      @default(0)
+  isVisible  Boolean  @default(true)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([tenantId, sectionKey])
+}
+
+model CBTAttempt {
+  id                   String    @id @default(uuid())
+  tenantId             String
+  examId               String
+  exam                 Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId            String
+  student              Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  startTime            DateTime  @default(now())
+  submitTime           DateTime?
+  status               String    @default("IN_PROGRESS") // "IN_PROGRESS" | "SUBMITTED" | "TIMED_OUT"
+  serverClockTime      DateTime  @default(now())
+  responses            String    @default("{}") // JSON: {"q1": "A", "q2": "14.2"}
+  currentQuestionIndex Int       @default(0)
+  markedForReview      String    @default("[]") // JSON array of question IDs
+  timeSpentPerQuestion String    @default("{}") // JSON: {"q1": 45, "q2": 120} in seconds
+}
+
+// -------------------------------------------------------------
+// WINDOWS ACADEMIC NODE & OFFLINE SYNC (PRD Sec 33, 34, 35)
+// -------------------------------------------------------------
+
+model AcademicNode {
+  id                 String          @id @default(uuid())
+  tenantId           String
+  tenant             Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId           String?
+  branch             Branch?         @relation(fields: [branchId], references: [id])
+  nodeCode           String          // e.g. "PUNE-CAMPUS-NODE-01"
+  name               String          // "Pune Campus Windows Terminal 1"
+  machineFingerprint String          // Hardware UUID / MAC / OS ID
+  ipAddress          String?         // Local LAN IP (e.g. 192.168.1.45)
+  osVersion          String?         // "Windows 11 Pro 64-bit"
+  pairingToken       String          @unique // Handshake secret
+  tokenExpiresAt     DateTime?
+  status             String          @default("OFFLINE") // "ONLINE" | "OFFLINE" | "SYNCING"
+  lastSeenAt         DateTime?
+  lastSyncAt         DateTime?
+  syncEngineState    String?         @default("IDLE") // "IDLE" | "PULLING" | "PUSHING"
+  offlineScansCount  Int             @default(0)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  syncQueueItems     SyncQueueItem[]
+
+  @@unique([tenantId, nodeCode])
+}
+
+model SyncQueueItem {
+  id         String        @id @default(uuid())
+  nodeId     String
+  node       AcademicNode  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  direction  String        // "PUSH" (node to cloud) | "PULL" (cloud to node)
+  entityType String        // "OMR_SCAN" | "EXAM_RESULT" | "ATTENDANCE" | "STUDENT_ENROLLMENT" | "EXAM_BLUEPRINT"
+  entityId   String?
+  payload    String        // Encrypted / JSON serialized delta
+  state      String        @default("PENDING") // "PENDING" | "PROCESSING" | "SYNCED" | "CONFLICT" | "FAILED"
+  retryCount Int           @default(0)
+  errorMsg   String?
+  syncedAt   DateTime?
+  createdAt  DateTime      @default(now())
+}
+
