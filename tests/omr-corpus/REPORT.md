@@ -8,28 +8,28 @@ Engine under test: `DeterministicOMREngine` (`src/lib/omr/omr-engine.ts`) - the 
 
 | Metric | Value | Notes |
 |---|---|---|
-| Extraction accuracy | 88.46% | correct auto-extraction / supported questions |
-| Review rate | 14.74% | questions routed to human review |
-| **False-confidence rate** | **1.28%** | wrong option returned with confidence - reported separately, target ~0 |
-| Silent-miss rate | 7.69% | determinate answer dropped with no flag |
+| Extraction accuracy | 73.72% | correct auto-extraction / supported questions |
+| Review rate | 41.03% | questions routed to human review |
+| **False-confidence rate** | **0.00%** | wrong option returned with confidence - reported separately, target ~0 |
+| Silent-miss rate | 0.00% | determinate answer dropped with no flag |
 
 Corpus: 11 sheets (9 supported), 188 questions (156 supported).
 
 ## Fail-safe behaviour on out-of-envelope sheets
 
-- Unsupported sheets returning `CONFIDENT`: **2** of 2 (should be 0).
+- Unsupported sheets returning `CONFIDENT`: **0** of 2 (should be 0).
 - Sheets with no roll number not resolving to `UNMATCHED`: **0** (should be 0).
 
 ## By capture / mark condition
 
 | Condition | Supported Qs | Accuracy | Review rate | False-confidence | Silent miss |
 |---|---|---|---|---|---|
-| clean | 68 | 100.00% | 0.00% | 0.00% | 0.00% |
+| clean | 68 | 77.94% | 22.06% | 0.00% | 0.00% |
 | double-mark | 16 | 100.00% | 43.75% | 0.00% | 0.00% |
-| erasure | 16 | 87.50% | 43.75% | 0.00% | 12.50% |
-| light-marks | 18 | 44.44% | 0.00% | 0.00% | 55.56% |
-| photocopy-speckle | 20 | 90.00% | 35.00% | 0.00% | 0.00% |
-| stray-mark | 18 | 77.78% | 11.11% | 11.11% | 0.00% |
+| erasure | 16 | 75.00% | 68.75% | 0.00% | 0.00% |
+| light-marks | 18 | 11.11% | 88.89% | 0.00% | 0.00% |
+| photocopy-speckle | 20 | 80.00% | 55.00% | 0.00% | 0.00% |
+| stray-mark | 18 | 88.89% | 22.22% | 0.00% | 0.00% |
 
 ## Per-sheet status
 
@@ -37,36 +37,20 @@ Corpus: 11 sheets (9 supported), 188 questions (156 supported).
 |---|---|---|---|---|
 | clean-flatbed-laser | yes | 260001 | CONFIDENT | yes |
 | clean-phone-blackpen | yes | 260002 | CONFIDENT | yes |
-| mild-rotation-inkjet | yes | 260003 | CONFIDENT | yes |
+| mild-rotation-inkjet | yes | 260003 | AMBIGUOUS | yes |
 | photocopy-gen2-lowcontrast | yes | 260004 | AMBIGUOUS | yes |
-| light-pencil-marks | yes | 260005 | CONFIDENT | yes |
+| light-pencil-marks | yes | 260005 | AMBIGUOUS | yes |
 | double-marks | yes | 260006 | AMBIGUOUS | yes |
 | partial-erasure | yes | 260007 | AMBIGUOUS | yes |
 | stray-marks | yes | 260008 | AMBIGUOUS | yes |
 | unmatched-roll | yes | (none) | UNMATCHED | yes |
-| wrong-set-unsupported | no | 260045 | CONFIDENT | **no** |
-| cropped-edge-unsupported | no | 260046 | CONFIDENT | **no** |
+| wrong-set-unsupported | no | 260045 | REJECTED | yes |
+| cropped-edge-unsupported | no | 260046 | REJECTED | yes |
 
 ## False-confidence findings
 
-| Sheet | Q | Densities [A,B,C,D] | Truth | Engine returned |
-|---|---|---|---|---|
-| stray-marks | 3 | [0.08, 0.05, 0.5, 0.06] | blank | C |
-| stray-marks | 11 | [0.05, 0.06, 0.04, 0.46] | blank | D |
+_None._
 
 ## Silent-miss findings
 
-| Sheet | Q | Densities [A,B,C,D] | Truth | Engine returned |
-|---|---|---|---|---|
-| light-pencil-marks | 1 | [0.38, 0.06, 0.05, 0.04] | A | (nothing, no flag) |
-| light-pencil-marks | 2 | [0.05, 0.4, 0.06, 0.03] | B | (nothing, no flag) |
-| light-pencil-marks | 3 | [0.04, 0.05, 0.36, 0.05] | C | (nothing, no flag) |
-| light-pencil-marks | 4 | [0.06, 0.04, 0.05, 0.41] | D | (nothing, no flag) |
-| light-pencil-marks | 7 | [0.07, 0.05, 0.34, 0.04] | C | (nothing, no flag) |
-| light-pencil-marks | 8 | [0.05, 0.06, 0.04, 0.39] | D | (nothing, no flag) |
-| light-pencil-marks | 11 | [0.06, 0.37, 0.05, 0.06] | B | (nothing, no flag) |
-| light-pencil-marks | 13 | [0.05, 0.05, 0.06, 0.4] | D | (nothing, no flag) |
-| light-pencil-marks | 14 | [0.35, 0.07, 0.04, 0.05] | A | (nothing, no flag) |
-| light-pencil-marks | 17 | [0.05, 0.04, 0.38, 0.06] | C | (nothing, no flag) |
-| partial-erasure | 9 | [0.1, 0.33, 0.08, 0.05] | B | (nothing, no flag) |
-| partial-erasure | 13 | [0.36, 0.09, 0.05, 0.07] | A | (nothing, no flag) |
+_None._

@@ -28,7 +28,7 @@ export interface SheetExtractionResult {
     cropEvidenceBox?: { x: number; y: number; width: number; height: number };
   }[];
   overallConfidence: number;
-  status: "CONFIDENT" | "AMBIGUOUS" | "UNMATCHED";
+  status: "CONFIDENT" | "AMBIGUOUS" | "UNMATCHED" | "REJECTED";
 }
 
 /**
@@ -51,6 +51,7 @@ export class DeterministicOMREngine {
   public static readonly FILL_THRESHOLD = 0.42;
   public static readonly HIGH_CONFIDENCE_THRESHOLD = 0.65;
   public static readonly AMBIGUITY_DELTA_THRESHOLD = 0.15; // If two bubbles are within 15% density
+  public static readonly LOW_CONFIDENCE_FLOOR = 0.28;
 
   /**
    * Evaluates question bubbles from density matrix
@@ -75,6 +76,15 @@ export class DeterministicOMREngine {
 
     // Case 1: Unattempted (all clean)
     if (markedBubbles.length === 0) {
+      const top = [...bubbles].sort((a, b) => b.fillDensity - a.fillDensity)[0];
+      if (top.fillDensity >= this.LOW_CONFIDENCE_FLOOR) {
+        return { chosenOption: null, bubbles, ambiguityReason: {
+          questionNumber, reason: "LOW_CONFIDENCE",
+          message: `Question ${questionNumber}: faint mark requires visual review.`,
+          detectedOptions: [top.option],
+          cropEvidenceBox: { x: 0, y: questionNumber, width: 1, height: 1 },
+        } };
+      }
       return { chosenOption: null, bubbles, ambiguityReason: null };
     }
 
@@ -86,6 +96,15 @@ export class DeterministicOMREngine {
         .filter((b) => b.option !== topBubble.option)
         .map((b) => b.fillDensity);
       const nextHighest = Math.max(...otherDensities, 0);
+
+      if (topBubble.fillDensity < this.HIGH_CONFIDENCE_THRESHOLD && nextHighest < this.LOW_CONFIDENCE_FLOOR) {
+        return { chosenOption: null, bubbles, ambiguityReason: {
+          questionNumber, reason: "STRAY_MARK",
+          message: `Question ${questionNumber}: isolated mark lacks sufficient fill confidence.`,
+          detectedOptions: [topBubble.option],
+          cropEvidenceBox: { x: 0, y: questionNumber, width: 1, height: 1 },
+        } };
+      }
 
       if (topBubble.fillDensity - nextHighest < this.AMBIGUITY_DELTA_THRESHOLD && nextHighest > 0.25) {
         return {
@@ -128,7 +147,8 @@ export class DeterministicOMREngine {
     sheetId: string,
     rollNumber: string,
     totalQuestions: number,
-    questionDensityMap: Record<number, number[]> // qNum -> [A_density, B_density, C_density, D_density]
+    questionDensityMap: Record<number, number[]>, // qNum -> [A_density, B_density, C_density, D_density]
+    validation: { supported?: boolean; templateValid?: boolean; pageComplete?: boolean } = {},
   ): SheetExtractionResult {
     const responses: Record<number, string> = {};
     const bubbleDetails: Record<number, DetectedBubble[]> = {};
@@ -162,7 +182,9 @@ export class DeterministicOMREngine {
       totalQuestions > 0 ? Math.round((totalConfidenceSum / totalQuestions) * 100) / 100 : 1.0;
 
     const status: SheetExtractionResult["status"] =
-      ambiguities.length > 0 ? "AMBIGUOUS" : rollNumber ? "CONFIDENT" : "UNMATCHED";
+      validation.supported === false || validation.templateValid === false || validation.pageComplete === false
+        ? "REJECTED"
+        : ambiguities.length > 0 ? "AMBIGUOUS" : rollNumber ? "CONFIDENT" : "UNMATCHED";
 
     return {
       sheetId,

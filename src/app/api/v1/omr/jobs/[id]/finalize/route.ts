@@ -34,6 +34,10 @@ export async function POST(
     if (!job) {
       return NextResponse.json({ error: "OMR Job not found" }, { status: 404 });
     }
+    const blockedScans = job.scans.filter((scan) => ["AMBIGUOUS", "UNMATCHED", "REJECTED"].includes(scan.status));
+    if (blockedScans.length > 0 || job.status === "REVIEW_REQUIRED") {
+      return NextResponse.json({ error: "OMR review is incomplete", blockedSheets: blockedScans.length }, { status: 409 });
+    }
 
     const examQuestions: ExamQuestionConfig[] = job.exam.examQuestions.map((eq) => ({
       id: eq.id,

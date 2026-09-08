@@ -18,11 +18,13 @@ import { formatMarkdown, runCorpus, type CorpusReport } from "./runner";
  * ceilings here, this suite fails on purpose.
  */
 const BASELINE = {
-  extractionAccuracyFloor: 0.88,
-  reviewRateCeil: 0.16,
+  // OMR-001 trades auto-accepts for human review on faint/isolated marks.
+  // New safety baseline after eliminating false confidence and silent misses.
+  extractionAccuracyFloor: 0.73,
+  reviewRateCeil: 0.42,
   falseConfidenceRateCeil: 0.02,
   silentMissRateCeil: 0.08,
-  unsupportedConfidentLeaksCeil: 2,
+  unsupportedConfidentLeaksCeil: 0,
 } as const;
 
 const fixtures = loadCorpus();

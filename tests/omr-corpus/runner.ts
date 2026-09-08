@@ -100,6 +100,7 @@ function runSheet(fixture: LoadedFixture): { sheet: SheetRecord; questions: Ques
     sheet.rollNumber,
     sheet.totalQuestions,
     densityMap,
+    { supported: sheet.supported },
   );
 
   const flaggedByQ = new Map<number, string>();
