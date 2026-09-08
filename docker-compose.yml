@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  webpie-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webpie-academic-os
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://webpie_admin:WebPieSecure2026@postgres:5432/webpie_academic_os?schema=public
+      - JWT_SECRET=webpie-academic-os-super-secret-production-jwt-key-2026
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - NEXT_PUBLIC_APP_NAME=WebPie Academic Intelligence OS
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - STORAGE_DRIVER=local
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: webpie-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: webpie_admin
+      POSTGRES_PASSWORD: WebPieSecure2026
+      POSTGRES_DB: webpie_academic_os
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: webpie-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
