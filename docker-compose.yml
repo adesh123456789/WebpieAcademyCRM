@@ -1,5 +1,7 @@
-version: '3.8'
-
+# Secrets are read from the environment / an untracked .env file, never baked in.
+# Required before `docker compose up`:  JWT_SECRET, POSTGRES_PASSWORD
+# Optional:  DATABASE_URL (defaults to the bundled postgres), GEMINI_API_KEY, OPENAI_API_KEY,
+#            NODE_ENCRYPTION_KEY, NEXT_PUBLIC_APP_URL
 services:
   webpie-app:
     build:
@@ -10,30 +12,39 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://webpie_admin:WebPieSecure2026@postgres:5432/webpie_academic_os?schema=public
-      - JWT_SECRET=webpie-academic-os-super-secret-production-jwt-key-2026
-      - NEXT_PUBLIC_APP_URL=http://localhost:3000
-      - NEXT_PUBLIC_APP_NAME=WebPie Academic Intelligence OS
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - STORAGE_DRIVER=local
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-webpie_admin}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-webpie_academic_os}?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-WebPie Academic Intelligence OS}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      NODE_ENCRYPTION_KEY: ${NODE_ENCRYPTION_KEY:-}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   postgres:
     image: postgres:18-alpine
     container_name: webpie-postgres
     restart: always
     environment:
-      POSTGRES_USER: webpie_admin
-      POSTGRES_PASSWORD: WebPieSecure2026
-      POSTGRES_DB: webpie_academic_os
+      POSTGRES_USER: ${POSTGRES_USER:-webpie_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-webpie_academic_os}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-webpie_admin} -d ${POSTGRES_DB:-webpie_academic_os}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine

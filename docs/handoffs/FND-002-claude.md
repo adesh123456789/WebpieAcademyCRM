@@ -1,0 +1,29 @@
+# FND-002 / Claude - infra slice (container + secrets + CI smoke)
+
+- **Task / owner**: FND-002 infra portion / Claude. Pairs with `docs/handoffs/FND-002-codex.md` (Codex owns `prisma/schema.prisma` + the SQLite->PostgreSQL provider/migration path).
+- **Timestamp + timezone**: 2026-09-09 Asia/Kolkata
+- **Status**: REVIEW (infra portion complete; container smoke unverified until a git remote exists)
+- **Base commit / branch / worktree**: base `5f0b871` on `master` active checkout. New files + infra-only edits; no `prisma/`, route, `src/`, `package.json` or lockfile changes.
+- **Files owned or changed**:
+  - `.env.example` - replaced all baked secrets with empty placeholders + generation hints (`openssl rand`), added `POSTGRES_USER/PASSWORD/DB`, `UPLOAD_DIR`. No real secret value remains in the repo.
+  - `docker-compose.yml` - every secret now `${VAR:?...}` / `${VAR:-default}` from the environment or an untracked `.env`; removed the literal `WebPieSecure2026` password and the baked `JWT_SECRET`. Added a `postgres` healthcheck and `depends_on: condition: service_healthy`. `DATABASE_URL` defaults to the bundled postgres but can be overridden.
+  - `Dockerfile` - hermetic builder (`DATABASE_URL=file:/tmp/build.db` + `prisma db push` so `next build` never needs a real DB); `ENTRYPOINT sh ./scripts/docker-entrypoint.sh`; `public/` COPY now always resolves.
+  - `scripts/docker-entrypoint.sh` [NEW] - `prisma migrate deploy` when `prisma/migrations/` exists, else `prisma db push --skip-generate`, then `exec npm run start`. Makes a fresh container serve requests with no manual DB step.
+  - `public/.gitkeep` [NEW] - fixes the `COPY --from=builder /app/public` failure (PROJECT_ANALYSIS #10); gives Next a static dir.
+  - `.github/workflows/ci.yml` - added a `container-smoke` job: `docker build` -> `docker run` (SQLite at `/tmp/runtime.db`) -> poll `curl` for HTTP 200 -> always dump `docker logs` -> tear down. Runs in parallel with the existing `verify` job.
+- **What works now**:
+  - `npx tsc --noEmit` passes; `npm test` 9 files / 43 tests pass (infra changes touch no runtime code).
+  - `.dockerignore` already trims the build context (CLD-001); `scripts/` and `public/` are intentionally kept in context.
+- **API/schema/contract changes**: none.
+- **Checks run and exact results**:
+  - `npx tsc --noEmit` -> exit 0.
+  - `npm test` -> 9 files, 43 tests passed.
+  - Docker is not installed on this machine, so `docker build` / `docker compose config` / the smoke job were **not** run locally. They execute on the first GitHub Actions run once a remote is configured (same gap as CLD-001).
+- **Known gaps / blockers**:
+  - Container smoke unverified locally - needs a CI run or a machine with Docker.
+  - Provider still SQLite in `prisma/schema.prisma`. Per the coordination handoff this stays until Codex verifies the Prisma client strategy and adds the PostgreSQL migration path. The compose default `DATABASE_URL` points at postgres, so `docker compose up` needs Codex's provider work (or an explicit `DATABASE_URL=file:...` override) to be fully functional; the standalone `docker build` + SQLite smoke is provider-independent.
+  - No committed migrations yet -> `docker-entrypoint.sh` uses `db push`. Codex's migration work should flip it to `migrate deploy`.
+- **Next action and recipient**:
+  - Codex: review this infra slice, then implement the `prisma/schema.prisma` provider strategy + migrations + `prisma/migrations/` so `docker compose up` runs against PostgreSQL end to end. Integrate the combined FND-002 slice.
+  - Claude: available for CLD-003 (AI Gateway) once the AI-001 contract is drafted off C01.
+- **Review acknowledgement / integrated commit**: _pending Codex review of the infra portion_
