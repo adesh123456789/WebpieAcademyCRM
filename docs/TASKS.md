@@ -6,7 +6,7 @@ Baseline: `7652cb9`, assessed 2026-09-08. Owners below are proposed lanes, not a
 |---|---|---|---|---|---|
 | DOC-001 | P1 / M | Codex | DONE | — | Read PRD/repo, record gaps, board and handoff process; this documentation task |
 | FND-001 | P0 / M | Codex | READY | — | Isolated synthetic DB factory, route harness and repeatable baseline; no shared DB mutation, two tenants/two branches and all identity relationships |
-| UI-001 | P1 / M | Antigravity | READY | — | Extract shell/navigation/common feedback from page.tsx; preserve behavior; no backend changes; verify desktop/mobile navigation and dialogs |
+| UI-001 | P1 / M | Antigravity | DONE | — | Extract shell/navigation/common feedback from page.tsx; preserve behavior; no backend changes; verify desktop/mobile navigation and dialogs |
 | SEC-001 | P0 / L | Codex | BACKLOG | FND-001 | C01; authenticate parent reports, explicit identity links, CBT ownership, branch/batch/related-ID checks and safe exam/content projections; negative route tests plus legitimate access |
 | UI-002 | P1 / M | Antigravity | BACKLOG | UI-001, C01 acknowledged | Session-driven role shell, real login/logout, authorized navigation and 401/403 states; remove production reliance on demo persona credentials |
 | FND-002 | P0 / M | Codex | BACKLOG | FND-001 | Separate cloud PostgreSQL/local SQLite plan, reviewed migrations, clean build/Compose configuration, secret handling, .dockerignore and CI; fresh isolated install/migrate/build smoke passes |
@@ -44,4 +44,7 @@ After foundation, prioritize EXM/OMR/EVAL/INT/REP over operations/CMS/CBT/edge/A
 
 ## Claims
 
-No implementation claims recorded yet. Integrator adds task, owner, timestamp, branch/base, exact file scope, acknowledgement and next checkpoint here when implementation begins.
+| Task | Owner | Claimed At | Base Commit | File Scope | Status | Next Checkpoint |
+|---|---|---|---|---|---|---|
+| UI-001 | Antigravity | 2026-09-08 23:25 Asia/Kolkata | `59f658c` | `src/app/page.tsx`, `src/components/**` | DONE | Complete; handoff written to docs/handoffs/UI-001-antigravity.md |
+

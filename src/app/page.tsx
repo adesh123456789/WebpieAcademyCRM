@@ -46,6 +46,20 @@ import {
   HardDrive
 } from "lucide-react";
 import { UserRole, ROLE_NAVIGATION_CONFIG } from "@/lib/permissions";
+import {
+  AppHeader,
+  AppSidebar,
+  Student360Modal,
+  ArtifactDownloadModal,
+  OverrideOmrModal,
+  ProvisionAcademyModal,
+  DirectLoginModal,
+  AddStudentModal,
+  RecordFeeModal,
+  AddLeadModal,
+  NodeSyncModal,
+  PairNodeModal,
+} from "@/components";
 
 export default function WebPieAcademicOS() {
   // Navigation & Role State
@@ -848,186 +862,28 @@ export default function WebPieAcademicOS() {
   }
 
 
-  // Get current role configuration
-  const roleConfig = ROLE_NAVIGATION_CONFIG[currentRole] || ROLE_NAVIGATION_CONFIG.OWNER;
-
-  // Helper icon renderer
-  const renderNavIcon = (iconName: string) => {
-    const props = { className: "w-4 h-4" };
-    switch (iconName) {
-      case "LayoutDashboard": return <LayoutDashboard {...props} />;
-      case "Building2": return <Building2 {...props} />;
-      case "Users": return <Users {...props} />;
-      case "UserPlus": return <UserPlus {...props} />;
-      case "FileText": return <FileText {...props} />;
-      case "ScanLine": return <ScanLine {...props} />;
-      case "Award": return <Award {...props} />;
-      case "Layers": return <Layers {...props} />;
-      case "GraduationCap": return <GraduationCap {...props} />;
-      case "CalendarCheck": return <CalendarCheck {...props} />;
-      case "CreditCard": return <CreditCard {...props} />;
-      case "Globe": return <Globe {...props} />;
-      case "BookOpen": return <BookOpen {...props} />;
-      case "PhoneCall": return <PhoneCall {...props} />;
-      case "Activity": return <Activity {...props} />;
-      case "Receipt": return <Receipt {...props} />;
-      case "Cpu": return <Cpu {...props} />;
-      case "ShieldAlert": return <ShieldAlert {...props} />;
-      case "Compass": return <Compass {...props} />;
-      case "FileEdit": return <FileEdit {...props} />;
-      case "LineChart": return <LineChart {...props} />;
-      case "Clock": return <Clock {...props} />;
-      case "Share2": return <Share2 {...props} />;
-      default: return <BookOpen {...props} />;
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      {/* TOAST NOTIFICATION */}
-      {statusMessage && (
-        <div className="fixed top-4 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-lg shadow-xl border border-slate-700 flex items-center gap-3 text-xs font-medium animate-fadeIn">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>{statusMessage}</span>
-        </div>
-      )}
-
-      {/* TOP HEADER: BRIGHT, PROFESSIONAL, HIGH-CONTRAST */}
-      <header className="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-        {/* Brand & Identity */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-sm text-white shadow-sm">
-              W
-            </div>
-            <div>
-              <div className="font-bold text-sm text-slate-900 tracking-tight flex items-center gap-2">
-                WebPie Academic OS
-                <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-mono font-medium">
-                  v2.0-PROD
-                </span>
-              </div>
-              <div className="text-[11px] text-slate-500 font-medium">
-                {currentRole === "WEBPIE_ADMIN"
-                  ? "Global Platform Operations"
-                  : currentRole === "INDIVIDUAL_TEACHER"
-                  ? "Prof. Deshmukh Physics (Independent Mode)"
-                  : "Apex IIT-JEE & NEET Academy, Pune"}
-              </div>
-            </div>
-          </div>
-
-          <div className="h-5 w-[1px] bg-slate-200 mx-1" />
-
-          {/* Context Badge */}
-          <div className="hidden lg:flex items-center gap-2 text-xs bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md text-slate-700 font-medium">
-            <Building2 className="w-3.5 h-3.5 text-blue-600" />
-            <span>{currentBranch}</span>
-          </div>
-        </div>
-
-        {/* Global Controls & 9-Role Switcher */}
-        <div className="flex items-center gap-3">
-          {/* Node Health / Fleet Trigger */}
-          <button
-            type="button"
-            onClick={() => {
-              loadNodes();
-              setIsNodeSyncModalOpen(true);
-            }}
-            className="hidden md:flex items-center gap-2 text-xs bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-md font-medium transition cursor-pointer shadow-xs active:scale-95"
-            title="Open Windows Academic Node & Offline Sync Hub"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-bold">Academic Node: Synced</span>
-            <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold">
-              {nodesList.length > 0 ? `${nodesList.length} Online` : "Ready"}
-            </span>
-          </button>
-
-          {/* Quick Role Switcher for Seamless Testing of All 9 Personas */}
-          <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 p-1 rounded-lg">
-            <span className="text-xs text-slate-600 font-semibold pl-2">Role:</span>
-            <select
-              value={currentRole}
-              onChange={(e) => handleRoleChange(e.target.value as UserRole)}
-              className="bg-white border border-slate-300 text-xs text-slate-900 font-bold px-2.5 py-1 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="WEBPIE_ADMIN">1. Super Admin (WebPie HQ)</option>
-              <option value="OWNER">2. Institute Owner</option>
-              <option value="BRANCH_ADMIN">3. Branch Admin</option>
-              <option value="TEACHER">4. Teacher (Academic Lead)</option>
-              <option value="COUNSELLOR">5. Admissions Counsellor</option>
-              <option value="ACCOUNTANT">6. Accountant (Finance)</option>
-              <option value="STUDENT">7. Student Portal</option>
-              <option value="PARENT">8. Parent Portal</option>
-              <option value="INDIVIDUAL_TEACHER">9. Individual Teacher (All-In-One)</option>
-            </select>
-          </div>
-
-          {/* Direct Login Modal Trigger */}
-          <button
-            onClick={() => setIsLoginModalOpen(true)}
-            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm transition"
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            Switch Account
-          </button>
-        </div>
-      </header>
+      <AppHeader
+        currentRole={currentRole}
+        currentBranch={currentBranch}
+        nodesCount={nodesList.length}
+        statusMessage={statusMessage}
+        onOpenNodeSyncModal={() => {
+          loadNodes();
+          setIsNodeSyncModalOpen(true);
+        }}
+        onChangeRole={handleRoleChange}
+        onOpenLoginModal={() => setIsLoginModalOpen(true)}
+      />
 
       {/* MAIN CONTAINER */}
       <div className="flex-1 flex overflow-hidden">
-        {/* SIDEBAR: STRICTLY FILTERED BY ROLE - ZERO UI LEAKAGE */}
-        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col p-3 gap-1 overflow-y-auto shrink-0 shadow-sm">
-          {/* Role Header Banner */}
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg mb-2">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-blue-700 flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              {roleConfig.title}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5 font-medium leading-tight">
-              {roleConfig.subtitle}
-            </div>
-          </div>
-
-          <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase px-3 py-1.5">
-            Navigation
-          </div>
-
-          {/* Render ONLY items allowed for this role */}
-          {roleConfig.navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition ${
-                activeTab === item.id
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                {renderNavIcon(item.icon)}
-                <span>{item.label}</span>
-              </div>
-              {item.badge && (
-                <span className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          ))}
-
-          {/* Quick Context Switcher for Individual Teacher Mode Notice */}
-          {currentRole === "INDIVIDUAL_TEACHER" && (
-            <div className="mt-auto p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 leading-relaxed">
-              <span className="font-bold block text-[11px] uppercase tracking-wide text-emerald-900 mb-1">
-                Independent Mode
-              </span>
-              All job roles (Tests, Grading, Fees, Attendance, WhatsApp) unified into a single streamlined cockpit.
-            </div>
-          )}
-        </aside>
+        <AppSidebar
+          currentRole={currentRole}
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+        />
 
         {/* WORKSPACE VIEW: BRIGHT, PROFESSIONAL, HIGH-DATA-DENSITY */}
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50">
@@ -2321,1032 +2177,88 @@ export default function WebPieAcademicOS() {
       </div>
 
       {/* ========================================================================= */}
-      {/* STUDENT 360 MODAL (PRD Sec 9) */}
+      {/* EXTRACTED MODALS (PRD UI-001) */}
       {/* ========================================================================= */}
-      {isStudentModalOpen && student360Data && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">{student360Data.name} — Student 360</h3>
-                <div className="text-xs text-slate-500 font-mono font-semibold">
-                  Roll: {student360Data.rollNumber} • Target: {student360Data.targetExam}
-                </div>
-              </div>
-              <button onClick={() => setIsStudentModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <Student360Modal
+        isOpen={isStudentModalOpen}
+        student={student360Data}
+        onClose={() => setIsStudentModalOpen(false)}
+      />
 
-            {/* Radar Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-xs">
-              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
-                <div className="text-slate-500 font-semibold">Tests Taken</div>
-                <div className="text-xl font-black text-slate-900 mt-1">
-                  {student360Data.stats?.totalExamsAttempted}
-                </div>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
-                <div className="text-slate-500 font-semibold">Attendance</div>
-                <div className="text-xl font-black text-emerald-600 mt-1">
-                  {student360Data.stats?.attendancePercentage}%
-                </div>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
-                <div className="text-slate-500 font-semibold">Mastered Concepts</div>
-                <div className="text-xl font-black text-blue-700 mt-1">
-                  {student360Data.stats?.masteredCount}
-                </div>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
-                <div className="text-slate-500 font-semibold">Fee Balance</div>
-                <div className="text-xl font-black text-amber-600 mt-1">
-                  ₹{student360Data.stats?.outstandingFees?.toLocaleString()}
-                </div>
-              </div>
-            </div>
+      <ArtifactDownloadModal
+        artifactData={artifactModalData}
+        onClose={() => setArtifactModalData(null)}
+      />
 
-            {/* Concept Mastery Heatmap */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Concept Mastery States (PRD Sec 28)
-              </h4>
-              <div className="space-y-2">
-                {student360Data.masteryScores?.map((m: any) => (
-                  <div
-                    key={m.id}
-                    className="bg-slate-50 border border-slate-200 p-3 rounded-lg flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <div className="font-bold text-slate-900">{m.concept}</div>
-                      <div className="text-[11px] text-slate-500">
-                        {m.subject} • {m.chapter}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-900">{m.score}%</span>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          m.state === "MASTERED"
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                            : m.state === "CRITICAL"
-                            ? "bg-rose-100 text-rose-800 border border-rose-300"
-                            : "bg-amber-100 text-amber-800 border border-amber-300"
-                        }`}
-                      >
-                        {m.state}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <OverrideOmrModal
+        overrideModal={overrideModal}
+        overrideChoice={overrideChoice}
+        setOverrideChoice={setOverrideChoice}
+        onClose={() => setOverrideModal(null)}
+        onSubmit={handleOverrideSubmit}
+      />
 
-      {/* ========================================================================= */}
-      {/* ARTIFACT PREVIEW / DOWNLOAD MODAL (PRD Sec 14) */}
-      {/* ========================================================================= */}
-      {artifactModalData && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-base">Printable Artifact Ready</h3>
-              <button onClick={() => setArtifactModalData(null)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <ProvisionAcademyModal
+        isOpen={isProvisionModalOpen}
+        form={provisionForm}
+        setForm={setProvisionForm}
+        onClose={() => setIsProvisionModalOpen(false)}
+        onSubmit={handleProvisionInstitute}
+      />
 
-            <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs space-y-2">
-              <div className="text-slate-700">
-                File: <span className="font-mono text-blue-700 font-bold">{artifactModalData.filename}</span>
-              </div>
-              <p className="text-slate-500 text-[11px]">
-                Rendered with 4-corner fiducial anchors, candidate barcode, and high-density vector typography.
-              </p>
-            </div>
+      <DirectLoginModal
+        isOpen={isLoginModalOpen}
+        loginForm={loginForm}
+        setLoginForm={setLoginForm}
+        onClose={() => setIsLoginModalOpen(false)}
+        onSubmit={handleDirectLogin}
+      />
 
-            <div className="flex justify-end gap-2">
-              <a
-                href={artifactModalData.dataUri}
-                download={artifactModalData.filename}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 py-2.5 rounded-lg flex items-center gap-2 shadow-sm transition"
-              >
-                <Download className="w-4 h-4" />
-                Download PDF
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddStudentModal
+        isOpen={isAddStudentModalOpen}
+        form={newStudentForm}
+        setForm={setNewStudentForm}
+        onClose={() => setIsAddStudentModalOpen(false)}
+        onSubmit={handleAddStudent}
+      />
 
-      {/* ========================================================================= */}
-      {/* OMR MANUAL OVERRIDE MODAL (PRD Sec 15) */}
-      {/* ========================================================================= */}
-      {overrideModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-base">Teacher OMR Review & Override</h3>
-              <button onClick={() => setOverrideModal(null)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <RecordFeeModal
+        isOpen={isRecordFeeModalOpen}
+        form={feeForm}
+        setForm={setFeeForm}
+        students={students}
+        onClose={() => setIsRecordFeeModalOpen(false)}
+        onSubmit={handleRecordFeePayment}
+      />
 
-            <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-xs space-y-2">
-              <div className="text-amber-900">
-                Question Number: <span className="font-bold">{overrideModal.qNum}</span>
-              </div>
-              <div className="text-amber-900">
-                Detected Ambiguity: <span className="font-bold">{overrideModal.detected}</span>
-              </div>
-              <p className="text-amber-700 text-[11px]">
-                Override will be logged to the immutable audit trail with your teacher digital signature.
-              </p>
-            </div>
+      <AddLeadModal
+        isOpen={isAddLeadModalOpen}
+        form={leadForm}
+        setForm={setLeadForm}
+        onClose={() => setIsAddLeadModalOpen(false)}
+        onSubmit={handleAddLead}
+      />
 
-            <div className="space-y-2">
-              <label className="text-xs text-slate-700 font-bold">Select Verified Option:</label>
-              <div className="grid grid-cols-4 gap-2">
-                {["A", "B", "C", "D"].map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => setOverrideChoice(opt)}
-                    className={`py-2 rounded-lg text-xs font-bold border transition ${
-                      overrideChoice === opt
-                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                        : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                    }`}
-                  >
-                    Option {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
+      <NodeSyncModal
+        isOpen={isNodeSyncModalOpen}
+        onClose={() => setIsNodeSyncModalOpen(false)}
+        nodesList={nodesList}
+        currentTenant={currentTenant}
+        syncingNodeId={syncingNodeId}
+        onRefreshNodes={loadNodes}
+        onOpenPairModal={() => setIsPairNodeModalOpen(true)}
+        onForceSync={handleForceSync}
+      />
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setOverrideModal(null)}
-                className="bg-slate-100 text-slate-700 text-xs px-4 py-2 rounded-lg font-bold border border-slate-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleOverrideSubmit}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition"
-              >
-                Save Audited Override
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* PROVISION NEW INSTITUTE MODAL (PRD Sec 6) */}
-      {/* ========================================================================= */}
-      {isProvisionModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-blue-600" />
-                  Provision New Institute / Academy
-                </h3>
-                <p className="text-xs text-slate-500">Creates isolated tenant partition, campus, and owner account.</p>
-              </div>
-              <button onClick={() => setIsProvisionModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleProvisionInstitute} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Institute / Academy Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Chaitanya IIT Academy"
-                    value={provisionForm.name}
-                    onChange={(e) => setProvisionForm({ ...provisionForm, name: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Subdomain / Code *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. CHAITANYA_PUNE"
-                    value={provisionForm.code}
-                    onChange={(e) => setProvisionForm({ ...provisionForm, code: e.target.value.toUpperCase() })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Operating Model</label>
-                  <select
-                    value={provisionForm.type}
-                    onChange={(e) => setProvisionForm({ ...provisionForm, type: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="INSTITUTE">Coaching Institute (Multi-Branch)</option>
-                    <option value="INDIVIDUAL_TEACHER">Individual Teacher (Single Classroom)</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Primary Exam Focus</label>
-                  <select
-                    value={provisionForm.primaryExam}
-                    onChange={(e) => setProvisionForm({ ...provisionForm, primaryExam: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="JEE_MAIN">JEE Main & Advanced</option>
-                    <option value="NEET">NEET (UG Medical)</option>
-                    <option value="MHT_CET">MHT-CET (Maharashtra)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Headquarters City</label>
-                  <input
-                    type="text"
-                    value={provisionForm.city}
-                    onChange={(e) => setProvisionForm({ ...provisionForm, city: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">License Plan</label>
-                  <select
-                    value={provisionForm.planId}
-                    onChange={(e) => setProvisionForm({ ...provisionForm, planId: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="PRO_INSTITUTE">Pro Institute (Unlimited)</option>
-                    <option value="ENTERPRISE">Enterprise Multi-Campus</option>
-                    <option value="TEACHER_PRO">Teacher Pro (Single Branch)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-200">
-                <div className="font-bold text-slate-900 mb-2">Director / Owner Credentials</div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-slate-700 font-bold">Director Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Dr. P. K. Rao"
-                      value={provisionForm.ownerName}
-                      onChange={(e) => setProvisionForm({ ...provisionForm, ownerName: e.target.value })}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-slate-700 font-bold">Director Email *</label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="e.g. director@chaitanya.com"
-                      value={provisionForm.ownerEmail}
-                      onChange={(e) => setProvisionForm({ ...provisionForm, ownerEmail: e.target.value })}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsProvisionModalOpen(false)}
-                  className="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg border border-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
-                >
-                  Provision Institute Now
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* DIRECT LOGIN MODAL */}
-      {/* ========================================================================= */}
-      {isLoginModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Direct User Authentication</h3>
-                <p className="text-xs text-slate-500">Sign in with registered credentials or pick a role shortcut.</p>
-              </div>
-              <button onClick={() => setIsLoginModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Quick Demo Fill Buttons */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] text-slate-500 uppercase font-bold">Quick Switch Personas:</label>
-              <div className="grid grid-cols-2 gap-1.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setLoginForm({ email: "superadmin@webpie.in", password: "superadmin123", error: "" })}
-                  className="bg-slate-50 border border-slate-200 p-2 rounded-lg text-left hover:bg-slate-100 transition"
-                >
-                  <div className="font-bold text-slate-900">Super Admin</div>
-                  <div className="text-[10px] text-slate-500">superadmin@webpie.in</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLoginForm({ email: "owner@apexiit.com", password: "admin123", error: "" })}
-                  className="bg-slate-50 border border-slate-200 p-2 rounded-lg text-left hover:bg-slate-100 transition"
-                >
-                  <div className="font-bold text-slate-900">Institute Owner</div>
-                  <div className="text-[10px] text-slate-500">owner@apexiit.com</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLoginForm({ email: "teacher.physics@apexiit.com", password: "admin123", error: "" })}
-                  className="bg-slate-50 border border-slate-200 p-2 rounded-lg text-left hover:bg-slate-100 transition"
-                >
-                  <div className="font-bold text-slate-900">Physics Lead</div>
-                  <div className="text-[10px] text-slate-500">teacher.physics@...</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLoginForm({ email: "deshmukh@physics.com", password: "admin123", error: "" })}
-                  className="bg-slate-50 border border-slate-200 p-2 rounded-lg text-left hover:bg-slate-100 transition"
-                >
-                  <div className="font-bold text-slate-900">Independent Educator</div>
-                  <div className="text-[10px] text-slate-500">deshmukh@physics.com</div>
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleDirectLogin} className="space-y-3 pt-2 text-xs">
-              {loginForm.error && (
-                <div className="bg-rose-50 border border-rose-200 text-rose-800 p-2 rounded-lg text-xs font-medium">
-                  {loginForm.error}
-                </div>
-              )}
-
-              <div className="space-y-1">
-                <label className="text-slate-700 font-bold">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={loginForm.email}
-                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-700 font-bold">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsLoginModalOpen(false)}
-                  className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold border border-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
-                >
-                  Sign In
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* ADD STUDENT MODAL */}
-      {/* ========================================================================= */}
-      {isAddStudentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                  <UserPlus className="w-4 h-4 text-blue-600" />
-                  Enroll New Student
-                </h3>
-                <p className="text-xs text-slate-500">Add student to the active batch with assigned roll number.</p>
-              </div>
-              <button onClick={() => setIsAddStudentModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddStudent} className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="text-slate-700 font-bold">Student Full Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Atharva Kulkarni"
-                  value={newStudentForm.name}
-                  onChange={(e) => setNewStudentForm({ ...newStudentForm, name: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Roll Number *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newStudentForm.rollNumber}
-                    onChange={(e) => setNewStudentForm({ ...newStudentForm, rollNumber: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Target Exam</label>
-                  <select
-                    value={newStudentForm.targetExam}
-                    onChange={(e) => setNewStudentForm({ ...newStudentForm, targetExam: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="JEE_MAIN">JEE Main</option>
-                    <option value="JEE_ADVANCED">JEE Advanced</option>
-                    <option value="NEET">NEET</option>
-                    <option value="MHT_CET">MHT-CET</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Parent / Student Phone</label>
-                  <input
-                    type="text"
-                    placeholder="9823001122"
-                    value={newStudentForm.phone}
-                    onChange={(e) => setNewStudentForm({ ...newStudentForm, phone: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Email Address</label>
-                  <input
-                    type="email"
-                    placeholder="student@example.com"
-                    value={newStudentForm.email}
-                    onChange={(e) => setNewStudentForm({ ...newStudentForm, email: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsAddStudentModalOpen(false)}
-                  className="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg border border-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
-                >
-                  Enroll Student
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* RECORD FEE PAYMENT MODAL */}
-      {/* ========================================================================= */}
-      {isRecordFeeModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-emerald-600" />
-                  Record Fee Collection
-                </h3>
-                <p className="text-xs text-slate-500">Issues serialized official receipt and updates student balance.</p>
-              </div>
-              <button onClick={() => setIsRecordFeeModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleRecordFeePayment} className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="text-slate-700 font-bold">Select Student *</label>
-                <select
-                  required
-                  value={feeForm.studentId}
-                  onChange={(e) => setFeeForm({ ...feeForm, studentId: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="">-- Choose Student --</option>
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.rollNumber})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Amount Paid (₹) *</label>
-                  <input
-                    type="number"
-                    required
-                    value={feeForm.amount}
-                    onChange={(e) => setFeeForm({ ...feeForm, amount: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Payment Mode</label>
-                  <select
-                    value={feeForm.paymentMode}
-                    onChange={(e) => setFeeForm({ ...feeForm, paymentMode: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="UPI">UPI / QR Code</option>
-                    <option value="CASH">Cash Counter</option>
-                    <option value="CHEQUE">Bank Cheque</option>
-                    <option value="NET_BANKING">Net Banking (NEFT/IMPS)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-700 font-bold">Remarks / Reference</label>
-                <input
-                  type="text"
-                  placeholder="e.g. UTR / Cheque No / Notes"
-                  value={feeForm.remarks}
-                  onChange={(e) => setFeeForm({ ...feeForm, remarks: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsRecordFeeModalOpen(false)}
-                  className="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg border border-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
-                >
-                  Generate Receipt & Record
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* ADD CRM LEAD MODAL */}
-      {/* ========================================================================= */}
-      {isAddLeadModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                  <UserPlus className="w-4 h-4 text-blue-600" />
-                  Capture New Admission Enquiry
-                </h3>
-                <p className="text-xs text-slate-500">Enters lead into the CRM pipeline for follow-up.</p>
-              </div>
-              <button onClick={() => setIsAddLeadModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddLead} className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="text-slate-700 font-bold">Student / Parent Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Swati Deshpande"
-                  value={leadForm.name}
-                  onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Phone Number *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="9822001144"
-                    value={leadForm.phone}
-                    onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Lead Source</label>
-                  <select
-                    value={leadForm.source}
-                    onChange={(e) => setLeadForm({ ...leadForm, source: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="WALK_IN">Walk-in Inquiry</option>
-                    <option value="PHONE">Phone Call</option>
-                    <option value="WEBSITE">Website Form</option>
-                    <option value="REFERRAL">Student Referral</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Course of Interest</label>
-                  <input
-                    type="text"
-                    value={leadForm.courseInterest}
-                    onChange={(e) => setLeadForm({ ...leadForm, courseInterest: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-700 font-bold">Exam Target</label>
-                  <select
-                    value={leadForm.examTarget}
-                    onChange={(e) => setLeadForm({ ...leadForm, examTarget: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="JEE_MAIN">JEE Main</option>
-                    <option value="NEET">NEET</option>
-                    <option value="MHT_CET">MHT-CET</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsAddLeadModalOpen(false)}
-                  className="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg border border-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
-                >
-                  Add to CRM Pipeline
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* WINDOWS ACADEMIC NODE & OFFLINE SYNC HUB (PRD Sec 33-35)  */}
-      {/* ========================================================= */}
-      {isNodeSyncModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden my-8">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-600/30 border border-blue-500/50 text-blue-400">
-                  <Laptop className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-bold tracking-tight">Windows Academic Node & Offline Sync Hub</h2>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded font-mono font-bold">
-                      PRD Sec 33-35 Beta
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    Resilient Edge Telemetry, Local SQLite Caching, and Two-Way Delta Sync
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsNodeSyncModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-              {/* Architecture Overview Banner */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-50/70 border border-blue-200 p-3.5 rounded-xl">
-                  <div className="flex items-center gap-2 text-blue-800 font-bold text-xs mb-1">
-                    <HardDrive className="w-4 h-4 text-blue-600" />
-                    Local SQLite Cache
-                  </div>
-                  <p className="text-[11px] text-blue-900 leading-relaxed">
-                    Cached question bank, active exams, and student rosters stored encrypted on local node disk for 100% offline exam scanning.
-                  </p>
-                </div>
-
-                <div className="bg-emerald-50/70 border border-emerald-200 p-3.5 rounded-xl">
-                  <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs mb-1">
-                    <Cpu className="w-4 h-4 text-emerald-600" />
-                    Edge Deterministic Eval
-                  </div>
-                  <p className="text-[11px] text-emerald-900 leading-relaxed">
-                    Autonomous OMR bubble decoding and grading engine operates on node with zero cloud latency and instant rank preview.
-                  </p>
-                </div>
-
-                <div className="bg-purple-50/70 border border-purple-200 p-3.5 rounded-xl">
-                  <div className="flex items-center gap-2 text-purple-800 font-bold text-xs mb-1">
-                    <RefreshCw className="w-4 h-4 text-purple-600" />
-                    Authoritative Sync
-                  </div>
-                  <p className="text-[11px] text-purple-900 leading-relaxed">
-                    Background delta queue automatically synchronizes scan matrices, attendance, and mastery logs upon network restoration.
-                  </p>
-                </div>
-              </div>
-
-              {/* Fleet Controls Bar */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Connected Terminal Fleet</h3>
-                  <p className="text-xs text-slate-500">
-                    Tenant: <strong className="text-slate-800">{currentTenant}</strong> • Nodes active: {nodesList.length}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={loadNodes}
-                    className="flex items-center gap-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-lg border border-slate-300 transition"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Refresh
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsPairNodeModalOpen(true)}
-                    className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3.5 py-2 rounded-lg shadow-sm transition"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Pair Windows Node
-                  </button>
-                </div>
-              </div>
-
-              {/* Node Fleet Listing */}
-              {nodesList.length === 0 ? (
-                <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl text-center space-y-3 bg-slate-50/50">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto">
-                    <Laptop className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-slate-800">No Academic Nodes Paired for this Academy</div>
-                    <div className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                      Pair an offline Windows workstation in your branch computer lab to enable zero-latency OMR scanning and offline CBT testing.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsPairNodeModalOpen(true)}
-                    className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Pair First Windows Terminal
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-3">
-                  {nodesList.map((node) => (
-                    <div
-                      key={node.id}
-                      className="border border-slate-200 rounded-xl p-4 bg-white hover:border-blue-300 hover:shadow-xs transition space-y-3"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-slate-100 text-slate-700">
-                            <Laptop className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm text-slate-900">{node.name}</span>
-                              <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-300 px-1.5 py-0.5 rounded font-mono font-semibold">
-                                {node.nodeCode}
-                              </span>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                                  node.status === "ACTIVE"
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-amber-100 text-amber-800"
-                                }`}
-                              >
-                                <span className={`w-1.5 h-1.5 rounded-full ${node.status === "ACTIVE" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                                {node.status === "ACTIVE" ? "ONLINE & PAIRED" : node.status}
-                              </span>
-                            </div>
-                            <div className="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
-                              <span>Hardware: <strong className="text-slate-700 font-mono">{node.machineFingerprint}</strong></span>
-                              <span>•</span>
-                              <span>OS: {node.osVersion || "Windows 11 Pro"}</span>
-                              <span>•</span>
-                              <span>IP: {node.ipAddress || "127.0.0.1"}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Force Pull Delta Sync Button */}
-                        <button
-                          type="button"
-                          disabled={syncingNodeId === node.id}
-                          onClick={() => handleForceSync(node)}
-                          className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60 transition self-start sm:self-center"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${syncingNodeId === node.id ? "animate-spin text-blue-700" : ""}`} />
-                          {syncingNodeId === node.id ? "Pulling Delta..." : "Sync Delta Now"}
-                        </button>
-                      </div>
-
-                      {/* Telemetry Counters */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
-                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
-                          <div className="text-[10px] uppercase font-bold text-slate-400">Offline Scans</div>
-                          <div className="text-sm font-black text-slate-900">{node.offlineScansCount || 0} sheets</div>
-                        </div>
-                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
-                          <div className="text-[10px] uppercase font-bold text-slate-400">Engine State</div>
-                          <div className="text-xs font-bold text-blue-700">{node.syncEngineState || "IDLE"}</div>
-                        </div>
-                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
-                          <div className="text-[10px] uppercase font-bold text-slate-400">Last Seen</div>
-                          <div className="text-xs font-semibold text-slate-700">
-                            {node.lastSeenAt ? new Date(node.lastSeenAt).toLocaleTimeString() : "Recent"}
-                          </div>
-                        </div>
-                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
-                          <div className="text-[10px] uppercase font-bold text-slate-400">Sync Status</div>
-                          <div className="text-xs font-semibold text-emerald-700 flex items-center justify-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Delta Up-to-date
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-              <div className="flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>End-to-End Encrypted Handshake with SHA-256 Token Authorization</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsNodeSyncModalOpen(false)}
-                className="bg-white border border-slate-300 text-slate-700 font-bold px-4 py-1.5 rounded-lg hover:bg-slate-50 transition"
-              >
-                Close Hub
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* PAIR NEW WINDOWS ACADEMIC NODE MODAL                      */}
-      {/* ========================================================= */}
-      {isPairNodeModalOpen && (
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Laptop className="w-5 h-5 text-blue-400" />
-                <h3 className="font-bold text-sm">Pair Windows Academic Node</h3>
-              </div>
-              <button
-                onClick={() => setIsPairNodeModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handlePairNode} className="p-6 space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="text-slate-700 font-bold">Node Identifier Code *</label>
-                <input
-                  type="text"
-                  required
-                  value={pairForm.nodeCode}
-                  onChange={(e) => setPairForm({ ...pairForm, nodeCode: e.target.value.toUpperCase() })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono font-bold focus:ring-1 focus:ring-blue-500"
-                  placeholder="NODE-PUNE-01"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-700 font-bold">Friendly Terminal Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={pairForm.name}
-                  onChange={(e) => setPairForm({ ...pairForm, name: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:ring-1 focus:ring-blue-500"
-                  placeholder="Kothrud Lab 1 Scanner PC"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-700 font-bold">Hardware Machine Fingerprint *</label>
-                <input
-                  type="text"
-                  required
-                  value={pairForm.machineFingerprint}
-                  onChange={(e) => setPairForm({ ...pairForm, machineFingerprint: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:ring-1 focus:ring-blue-500"
-                  placeholder="WIN-PC-8921-X64"
-                />
-                <p className="text-[10px] text-slate-500">
-                  Unique CPU + Motherboard UUID generated by the Windows Node desktop installer.
-                </p>
-              </div>
-
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-1">
-                <div className="text-[11px] font-bold text-blue-900">Target Tenant Scope</div>
-                <div className="text-[11px] text-blue-800">
-                  Code: <strong className="font-mono">{currentTenant}</strong> • Branch: {currentBranch}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsPairNodeModalOpen(false)}
-                  className="bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-lg border border-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-lg shadow-sm transition"
-                >
-                  Authenticate & Pair Node
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <PairNodeModal
+        isOpen={isPairNodeModalOpen}
+        pairForm={pairForm}
+        setPairForm={setPairForm}
+        currentTenant={currentTenant}
+        currentBranch={currentBranch}
+        onClose={() => setIsPairNodeModalOpen(false)}
+        onSubmit={handlePairNode}
+      />
     </div>
   );
 }

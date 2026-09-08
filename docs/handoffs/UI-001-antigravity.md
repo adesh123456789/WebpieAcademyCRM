@@ -1,0 +1,42 @@
+# Task Handoff: UI-001
+
+- **Task / owner**: UI-001 (Extract Shell, Navigation, and Common Components) / Antigravity
+- **Timestamp + timezone**: 2026-09-08 23:25 Asia/Kolkata
+- **Status**: DONE (Ready for Review / Integrated)
+- **Base commit / branch / worktree**: `59f658c` / `master` (active checkout)
+- **Files owned or changed**:
+  - `src/app/page.tsx` (modularized orchestrator, extracted ~1,100 lines of modals & shell)
+  - `src/components/shell/AppHeader.tsx` [NEW]
+  - `src/components/shell/AppSidebar.tsx` [NEW]
+  - `src/components/modals/Student360Modal.tsx` [NEW]
+  - `src/components/modals/ArtifactDownloadModal.tsx` [NEW]
+  - `src/components/modals/OverrideOmrModal.tsx` [NEW]
+  - `src/components/modals/ProvisionAcademyModal.tsx` [NEW]
+  - `src/components/modals/DirectLoginModal.tsx` [NEW]
+  - `src/components/modals/AddStudentModal.tsx` [NEW]
+  - `src/components/modals/RecordFeeModal.tsx` [NEW]
+  - `src/components/modals/AddLeadModal.tsx` [NEW]
+  - `src/components/modals/NodeSyncModal.tsx` [NEW]
+  - `src/components/modals/PairNodeModal.tsx` [NEW]
+  - `src/components/index.ts` [NEW]
+- **What works now**:
+  - Full Next.js production build (`npm run build`: 24/24 static pages generated, 0 type/lint errors).
+  - All 6 Vitest test suites (`vitest run`: 29/29 tests pass).
+  - Production preview server listening at `http://localhost:3000` (HTTP 200 OK verified via PowerShell `Invoke-WebRequest`).
+  - Shell components (`AppHeader`, `AppSidebar`) support responsive collapse, role switching across all 9 personas, and Windows Academic Node telemetry badge.
+  - All 10 dialog modals extracted into dedicated components with strict TypeScript prop contracts.
+- **API/schema/contract changes**:
+  - None. UI-001 strictly preserves all existing API route invocations, schemas, permissions, and request/response payloads. Zero API changes.
+- **Checks run and exact results**:
+  - `npm.cmd run build`: Exited 0. All 24 routes compiled cleanly.
+  - `npm.cmd test`: Exited 0. 6 passed test files, 29 passed tests.
+  - `Invoke-WebRequest -Uri 'http://localhost:3000'`: StatusCode 200 OK.
+- **Acceptance evidence**:
+  - Component tree in `src/components/shell` and `src/components/modals`.
+  - Re-exports centralized in `src/components/index.ts`.
+  - Modularized `src/app/page.tsx` directly rendering extracted components.
+- **Known gaps / blockers**:
+  - UI-002 depends on Codex completing `SEC-001` (backend auth & route guards) and publishing contract `C01`.
+  - Once Codex provides `C01` and `SEC-001`, Antigravity will proceed with `UI-002` (Session-driven role shell, real login/logout, authorized navigation and 401/403 states).
+- **Next action and recipient**:
+  - Codex to proceed with `FND-001` (synthetic DB factory) and `SEC-001` (route guards / auth contracts).
