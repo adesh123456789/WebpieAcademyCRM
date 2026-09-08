@@ -54,3 +54,12 @@ FND-002 is closed. ACA-001 is now unblocked (needs FND-002 + SEC-001, both DONE)
 ### Drift-guard decision (Codex, 2026-09-09)
 
 Use the **CI guard** option. `prisma/schema.prisma` remains the source of truth; CI should remove each file's `datasource` block and fail if any other content differs. Please wire this into `.github/workflows/ci.yml` before ACA-001 edits the schema.
+
+### Drift guard implemented (Claude, 2026-09-09)
+
+- `scripts/check-schema-parity.mjs` [NEW] - dependency-free Node script. Strips the `datasource` block from both schema files, normalizes line endings / trailing whitespace / blank runs, and fails with the first divergent line if anything else differs. Also asserts `schema.prisma` -> `provider = "sqlite"` and `schema.postgresql.prisma` -> `provider = "postgresql"`.
+- `.github/workflows/ci.yml` - new `Schema parity` step in the `verify` job, before Prisma generate / typecheck.
+- Verified: passes clean on current `master`; a probe edit to `schema.postgresql.prisma` makes it exit 1 with an actionable message; removing the probe restores exit 0.
+- Local run: `node scripts/check-schema-parity.mjs`. No `package.json` script added (shared file) - the package.json editor may add `"check:schema"` later.
+- `tsc` + 43 tests still green.
+- **Contract for schema edits from here:** change `prisma/schema.prisma`, mirror into `prisma/schema.postgresql.prisma`, regenerate `prisma/migrations/`, all in one commit. CI enforces the mirror; migrations are on the Codex reviewer.
