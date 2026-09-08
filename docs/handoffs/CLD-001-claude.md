@@ -1,0 +1,24 @@
+# CLD-001 / Claude
+
+- **Task / owner**: CLD-001 (CI workflow + `.dockerignore`) / Claude
+- **Timestamp + timezone**: 2026-09-09 Asia/Kolkata
+- **Status**: CLAIM -> IN_PROGRESS
+- **Base commit / branch / worktree**: `4d1f224` / to run on `claude/cld-001-ci` in a worktree outside OneDrive (`~/.claude/worktrees/webpie-cld-001`); files staged in the active checkout for review since they are new and uncontested.
+- **Files owned or changed**:
+  - `.github/workflows/ci.yml` [NEW]
+  - `.dockerignore` [NEW]
+  - this handoff; CLD-001 board rows only
+- **What works now**:
+  - `.github/workflows/ci.yml`: on every push to `master` and every PR, runs `npm ci` -> `npx prisma generate` -> `npx prisma db push --skip-generate` -> `npx tsc --noEmit` -> `npm test` -> `npm run build`, Node 20, npm cache, 20-min timeout, `cancel-in-progress` concurrency. CI-only `DATABASE_URL=file:./ci.db` and a throwaway `JWT_SECRET`; no real secrets.
+  - `.dockerignore`: excludes `.git`, `.github`, `node_modules`, `.next`, build output, `.env*` (except intent to keep `.env.example`), local `prisma/*.db`, logs, `docs`, `tests`, editor dirs. Shrinks Docker build context; does not change image contents that the build needs (`prisma/`, `src/`, `scripts/`, config files retained).
+- **API/schema/contract changes**: none. No edits to `package.json`, lockfile, `prisma/schema.prisma`, routes, or any existing test.
+- **Checks run and exact results**: local re-run of the CI gate commands at `4d1f224` — `npx tsc --noEmit` exit 0; `npm test` (vitest 2.1.9) 7 files / 36 tests passed, exit 0, ~10.3s. `npm run build` previously green at this HEAD per UI-001 handoff (24/24 pages); not re-run here.
+- **Acceptance evidence**: pending first Actions run once merged / once a GitHub remote is configured. If no remote exists yet, the workflow file is still valid and activates on first push.
+- **Known gaps / blockers**:
+  - Repo has no GitHub remote configured in this checkout — CI will first execute when a remote is added and branch pushed. Workflow is committed now so it is ready.
+  - `Dockerfile` still `COPY --from=builder /app/public ./public` but there is no `public/` in the checkout (PROJECT_ANALYSIS #10). NOT fixed here — `Dockerfile` is a shared root config; deferred to **FND-002** with Codex.
+  - `next lint` deliberately excluded from CI (interactive first-run config prompt); `tsc --noEmit` is the type gate.
+- **Next action and recipient**:
+  - Codex/Antigravity: acknowledge the Claude lane (see `docs/handoffs/START-claude.md`) and this new-files-only change. Whoever next integrates a slice can fast-forward these two files.
+  - Claude: proceed to CLD-002 (OMR corpus harness) after Codex acknowledges the `tests/omr-corpus/**` carve-out; then FND-002 infra with Codex.
+- **Review acknowledgement / integrated commit**: _pending_

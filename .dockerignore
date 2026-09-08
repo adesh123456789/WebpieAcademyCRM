@@ -1,0 +1,29 @@
+# Build context exclusions — keeps `docker build` fast and free of local state.
+.git
+.github
+node_modules
+.next
+out
+dist
+build
+
+# Local env and secrets (keep the example for reference only)
+.env
+.env.local
+.env.*.local
+
+# Local databases and logs
+prisma/*.db
+prisma/*.db-journal
+*.log
+server.log
+server_error.log
+
+# Dev-only material not needed in the image
+docs
+tests
+uploads
+.vscode
+.idea
+.DS_Store
+Thumbs.db
