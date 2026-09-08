@@ -60,6 +60,8 @@ import {
   AddLeadModal,
   NodeSyncModal,
   PairNodeModal,
+  StudentImportModal,
+  StudentParentLinkModal,
   LoginView,
   AuthenticatedUser,
   SuperAdminView,
@@ -169,6 +171,10 @@ export default function WebPieAcademicOS() {
     email: "",
     targetExam: "JEE_MAIN",
   });
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [isParentLinkModalOpen, setIsParentLinkModalOpen] = useState<boolean>(false);
+  const [selectedStudentForParentLink, setSelectedStudentForParentLink] = useState<any>(null);
 
   const [isRecordFeeModalOpen, setIsRecordFeeModalOpen] = useState<boolean>(false);
   const [feeForm, setFeeForm] = useState({
@@ -283,7 +289,7 @@ export default function WebPieAcademicOS() {
       const res = await fetch("/api/v1/students");
       if (res.ok) {
         const data = await res.json();
-        setStudents(data.students || []);
+        setStudents(data.items || data.students || []);
       }
     } catch (e) {
       console.error(e);
@@ -1047,7 +1053,13 @@ export default function WebPieAcademicOS() {
             <StudentsView
               students={students}
               onOpenAddStudentModal={() => setIsAddStudentModalOpen(true)}
+              onOpenImportModal={() => setIsImportModalOpen(true)}
+              onOpenParentLinkModal={(s) => {
+                setSelectedStudentForParentLink(s);
+                setIsParentLinkModalOpen(true);
+              }}
               onOpenStudent360={openStudent360}
+              currentBranch={currentBranch}
             />
           )}
 
@@ -1233,6 +1245,49 @@ export default function WebPieAcademicOS() {
         currentBranch={currentBranch}
         onClose={() => setIsPairNodeModalOpen(false)}
         onSubmit={handlePairNode}
+      />
+
+      <StudentImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportComplete={({ created, updated, rejected }) => {
+          loadStudents();
+          showToast(`Import finished: ${created} created, ${updated} updated, ${rejected} rejected.`);
+        }}
+        existingStudents={students}
+        currentBranch={currentBranch}
+      />
+
+      <StudentParentLinkModal
+        isOpen={isParentLinkModalOpen}
+        student={selectedStudentForParentLink}
+        onClose={() => {
+          setIsParentLinkModalOpen(false);
+          setSelectedStudentForParentLink(null);
+        }}
+        onSaveLinks={(studentId, links) => {
+          setStudents((prev) =>
+            prev.map((s) => {
+              if (s.id !== studentId) return s;
+              return {
+                ...s,
+                parentLinks: links.map((l) => ({
+                  id: l.id,
+                  isPrimary: l.isPrimary,
+                  relationship: l.relationship,
+                  accessFlags: l.accessFlags,
+                  parent: {
+                    name: l.name,
+                    phone: l.phone,
+                    email: l.email,
+                    relationship: l.relationship,
+                  },
+                })),
+              };
+            })
+          );
+          showToast("Parent linkage updated successfully.");
+        }}
       />
     </div>
   );

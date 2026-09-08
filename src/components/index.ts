@@ -10,5 +10,7 @@ export * from "./modals/RecordFeeModal";
 export * from "./modals/AddLeadModal";
 export * from "./modals/NodeSyncModal";
 export * from "./modals/PairNodeModal";
+export * from "./modals/StudentImportModal";
+export * from "./modals/StudentParentLinkModal";
 export * from "./auth/LoginView";
 export * from "./views";
