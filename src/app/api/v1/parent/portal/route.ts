@@ -43,17 +43,19 @@ export async function GET(req: NextRequest) {
       .map((m) => m.concept);
 
     // AI/Deterministic multilingual parent summary
-    const summaryText = await AIGateway.generateParentReportSummary({
+    const totalStudents = await prisma.student.count({ where: { tenantId: session.tenantId, status: "ACTIVE" } });
+    const summaryResult = await AIGateway.parentSummary({
       studentName: student.name,
       examTitle: latestResult?.exam.title || "Periodic Benchmark Assessment",
       score: latestResult?.score || 0,
       maxMarks: latestResult?.maximumMarks || 100,
       rank: latestResult?.cohortRank || 1,
-      totalStudents: 30,
+      totalStudents,
       strongConcepts,
       weakConcepts,
       language,
-    });
+    }, { tenantId: session.tenantId, userId: session.userId, role: session.role, traceId: req.headers.get("x-request-id") || crypto.randomUUID() });
+    const summaryText = summaryResult.data.text;
 
     // Attendance
     const totalSessions = student.attendanceRecords.length;

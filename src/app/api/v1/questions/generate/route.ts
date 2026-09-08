@@ -8,21 +8,19 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { examType, subject, chapter, concept, difficulty, count } = body;
+    const { examType = "JEE_MAIN", subject, chapter, concept, difficulty = "MEDIUM", count = 2 } = body;
+    if (!subject || !chapter || !concept) return NextResponse.json({ error: "subject, chapter, and concept are required" }, { status: 400 });
+    if (!Number.isInteger(count) || count < 1 || count > 20) return NextResponse.json({ error: "count must be an integer from 1 to 20" }, { status: 400 });
 
-    const candidates = await AIGateway.generateQuestionCandidates({
-      tenantId: session.tenantId,
-      examType: examType || "JEE_MAIN",
-      subject: subject || "PHYSICS",
-      chapter: chapter || "Laws of Motion",
-      concept: concept || "Limiting Friction & Angle of Repose",
-      difficulty: difficulty || "MEDIUM",
-      count: count || 2,
+    const result = await AIGateway.generateQuestions({ examType, subject, chapter, concept, difficulty, count }, {
+      tenantId: session.tenantId, userId: session.userId, role: session.role, traceId: req.headers.get("x-request-id") || crypto.randomUUID(),
     });
 
     return NextResponse.json({
       success: true,
-      candidates,
+      candidates: result.data.candidates,
+      outcome: result.outcome,
+      ...(result.shortfall === undefined ? {} : { shortfall: result.shortfall }),
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

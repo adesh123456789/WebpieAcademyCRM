@@ -250,43 +250,6 @@ export class AIGateway {
     };
   }
 
-  // ---------- deprecated back-compat shims (Codex removes when routes migrate) ----------
-
-  /** @deprecated use {@link AIGateway.generateQuestions}. Returns candidates only. */
-  static async generateQuestionCandidates(
-    params: AIGenerateQuestionRequest,
-  ): Promise<AIGeneratedQuestionCandidate[]> {
-    const ctx: AIContext = {
-      tenantId: params.tenantId,
-      userId: "system",
-      role: "SYSTEM",
-      traceId: `legacy-${Date.now()}`,
-    };
-    const result = await this.generateQuestions(
-      {
-        examType: params.examType,
-        subject: params.subject,
-        chapter: params.chapter,
-        concept: params.concept,
-        difficulty: params.difficulty,
-        count: params.count,
-      },
-      ctx,
-    );
-    return result.data.candidates;
-  }
-
-  /** @deprecated use {@link AIGateway.parentSummary}. Returns the summary text only. */
-  static async generateParentReportSummary(req: ParentReportSummaryRequest): Promise<string> {
-    const ctx: AIContext = {
-      tenantId: "system",
-      userId: "system",
-      role: "SYSTEM",
-      traceId: `legacy-${Date.now()}`,
-    };
-    const result = await this.parentSummary(req, ctx);
-    return result.data.text;
-  }
 }
 
 function renderParentTemplate(i: ParentSummaryInput): string {
