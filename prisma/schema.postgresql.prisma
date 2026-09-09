@@ -359,6 +359,7 @@ model OMRScan {
   ambiguityFlags     String?  // JSON: [{"question": 5, "reason": "DOUBLE_MARK", "cropUrl": "..."}]
   verifiedById       String?
   verifiedAt         DateTime?
+  version            Int      @default(1)
   createdAt          DateTime @default(now())
 }
 
