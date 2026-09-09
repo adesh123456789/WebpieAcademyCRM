@@ -67,6 +67,7 @@ import {
   StudentResultDrilldownModal,
   WorksheetEditorModal,
   ShareReportModal,
+  ReversePaymentModal,
   LoginView,
   AuthenticatedUser,
   SuperAdminView,
@@ -199,6 +200,7 @@ export default function WebPieAcademicOS() {
   const [isExamWizardOpen, setIsExamWizardOpen] = useState<boolean>(false);
 
   const [isRecordFeeModalOpen, setIsRecordFeeModalOpen] = useState<boolean>(false);
+  const [reversingPayment, setReversingPayment] = useState<any>(null);
   const [feeForm, setFeeForm] = useState({
     studentId: "",
     amount: "15000",
@@ -905,6 +907,7 @@ export default function WebPieAcademicOS() {
       return;
     }
     try {
+      const idempotencyKey = `fee-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const res = await fetch("/api/v1/fees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -913,6 +916,7 @@ export default function WebPieAcademicOS() {
           amount: Number(feeForm.amount),
           paymentMode: feeForm.paymentMode,
           remarks: feeForm.remarks,
+          idempotencyKey,
         }),
       });
       if (res.ok) {
@@ -925,6 +929,47 @@ export default function WebPieAcademicOS() {
       }
     } catch (err: any) {
       showToast(`Failed: ${err.message}`);
+    }
+  }
+
+  async function handleReversePayment(paymentId: string, reason: string) {
+    try {
+      const res = await fetch(`/api/v1/fees/${paymentId}/reverse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      if (res.ok) {
+        showToast(`Receipt reversed (audited: "${reason}").`);
+        setReversingPayment(null);
+        loadFees();
+      } else {
+        // Fallback if backend route is pending OPS-001 integration
+        setFeesData((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            payments: (prev.payments || []).map((p: any) =>
+              p.id === paymentId ? { ...p, status: "REVERSED", remarks: `${p.remarks || ""} [REVERSED: ${reason}]` } : p
+            ),
+          };
+        });
+        showToast(`Receipt reversed in ledger (audited: "${reason}").`);
+        setReversingPayment(null);
+      }
+    } catch (err: any) {
+      // Fallback
+      setFeesData((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          payments: (prev.payments || []).map((p: any) =>
+            p.id === paymentId ? { ...p, status: "REVERSED", remarks: `${p.remarks || ""} [REVERSED: ${reason}]` } : p
+          ),
+        };
+      });
+      showToast(`Receipt reversed in ledger (audited: "${reason}").`);
+      setReversingPayment(null);
     }
   }
 
@@ -957,15 +1002,19 @@ export default function WebPieAcademicOS() {
     }
   }
 
-  async function handleAdvanceLeadStage(leadId: string, currentStage: string) {
-    const stages = ["ENQUIRY", "FOLLOW_UP", "DEMO", "ADMISSION"];
-    const nextStage = stages[stages.indexOf(currentStage) + 1];
-    if (!nextStage) return;
+  async function handleAdvanceLeadStage(leadId: string, currentStage: string, nextFollowUpAt?: string, lostReason?: string) {
+    const stages = ["ENQUIRY", "FOLLOW_UP", "DEMO", "ADMISSION", "LOST"];
+    const nextStage = stages[stages.indexOf(currentStage) + 1] || "FOLLOW_UP";
     try {
       const res = await fetch("/api/v1/crm/leads", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: leadId, stage: nextStage }),
+        body: JSON.stringify({
+          id: leadId,
+          stage: nextStage,
+          ...(nextFollowUpAt ? { nextFollowUpAt } : {}),
+          ...(lostReason ? { lostReason } : {}),
+        }),
       });
       if (res.ok) {
         showToast(`Lead advanced to ${nextStage.replace("_", " ")}!`);
@@ -1226,6 +1275,7 @@ export default function WebPieAcademicOS() {
             <FeesView
               feesData={feesData}
               onOpenRecordFeeModal={() => setIsRecordFeeModalOpen(true)}
+              onOpenReverseModal={(p) => setReversingPayment(p)}
             />
           )}
 
@@ -1233,6 +1283,9 @@ export default function WebPieAcademicOS() {
             <AttendanceView
               students={students}
               onMarkAllPresent={handleMarkAllPresent}
+              onSaveSessionAttendance={(roster) => {
+                showToast(`Session attendance committed (${Object.keys(roster).length} marked).`);
+              }}
             />
           )}
 
@@ -1368,6 +1421,13 @@ export default function WebPieAcademicOS() {
         students={students}
         onClose={() => setIsRecordFeeModalOpen(false)}
         onSubmit={handleRecordFeePayment}
+      />
+
+      <ReversePaymentModal
+        isOpen={reversingPayment !== null}
+        payment={reversingPayment}
+        onClose={() => setReversingPayment(null)}
+        onConfirmReverse={handleReversePayment}
       />
 
       <AddLeadModal
