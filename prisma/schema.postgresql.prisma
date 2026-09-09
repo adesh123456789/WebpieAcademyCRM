@@ -466,6 +466,33 @@ model Intervention {
   createdAt         DateTime  @default(now())
 }
 
+model ReportVersion {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  studentId          String
+  version            Int      @default(1)
+  projectionJson     String
+  sourceResultId     String?
+  sourceMasteryAt    DateTime?
+  publishedAt        DateTime @default(now())
+  shares             ReportShareLink[]
+  @@unique([studentId, version])
+  @@index([tenantId, studentId, publishedAt])
+}
+
+model ReportShareLink {
+  id          String   @id @default(uuid())
+  tenantId    String
+  studentId   String
+  reportId    String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  report      ReportVersion @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  @@index([tenantId, studentId, expiresAt])
+}
+
 // -------------------------------------------------------------
 // OPERATIONS: CRM, FEES, ATTENDANCE & CMS (PRD Sec 10-13, 21)
 // -------------------------------------------------------------
