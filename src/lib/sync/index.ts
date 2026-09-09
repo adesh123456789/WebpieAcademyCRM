@@ -9,11 +9,10 @@
  *   - per-event conflict classification         (./conflict)
  *   - node request-signature verification       (./node-auth)
  *
- * Pending Codex's `SyncEvent` model + EVAL-001 revision model:
- *   - applyPushEvents(ctx, events, appliers)    -> transactional apply + provenance
- *   - buildPullDelta(ctx, cursor, limit)        -> durable change log + tombstones
- * Signatures are specified in C06 s11; they slot in here without changing the
- * pure API below.
+ * Landed on the SyncEvent schema (`b3d1ff3`):
+ *   - applyPushEvents(ctx, events, appliers)    -> per-event transactional apply
+ *   - buildPullDelta(ctx, cursor, limit)        -> tenant/branch delta (createdAt
+ *     v1; edit/delete tracking needs a Codex change log - see pull.ts header)
  */
 
 export * from "./types";
@@ -28,3 +27,5 @@ export { canonicalize, canonicalPayloadHash } from "./canonical";
 export { encodeCursor, decodeCursor, scopeKeyFor, type CursorState } from "./cursor";
 export { classifyConflict, type ConflictDecision } from "./conflict";
 export { verifyNodeSignature, nodeSignature } from "./node-auth";
+export { applyPushEvents } from "./apply";
+export { buildPullDelta } from "./pull";

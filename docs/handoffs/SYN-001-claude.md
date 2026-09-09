@@ -2,8 +2,22 @@
 
 - **Task / owner**: SYN-001 (`src/lib/sync/**` + event model) / Claude. Codex owns the `SyncEvent` Prisma model, route wiring, `verifyNode` expiry/revocation, handshake rotation.
 - **Timestamp + timezone**: 2026-09-09 Asia/Kolkata
-- **Status**: PARTIAL - the pure, schema-independent core is landed. `applyPushEvents` / `buildPullDelta` are blocked on Codex's `SyncEvent` model + EVAL-001's result-revision model.
-- **Base**: `6f3cdc4`. Contract: `docs/contracts/C06-node-sync.md` (amendments in section A, signatures in section 11).
+- **Status**: Claude half implemented. `applyPushEvents` + `buildPullDelta` landed on Codex's `SyncEvent` schema (`b3d1ff3`). Route wiring + real `DomainApplier` implementations are Codex's.
+- **Base**: `7039f95` (pure core) -> this slice on `b3d1ff3`. Contract: `docs/contracts/C06-node-sync.md` (amendments in section A, signatures in section 11).
+
+## Update: `applyPushEvents` + `buildPullDelta` (`src/lib/sync/{apply,pull}.ts`)
+
+**`applyPushEvents(ctx, events, appliers)`** - per event in its own `prisma.$transaction`:
+- prior `SyncEvent` by `eventId`: node/tenant mismatch -> `CONFLICT/OUT_OF_SCOPE` (no disclosure); canonical hash match -> `DUPLICATE` (echoes original `appliedVersion`, applier not re-run); hash differs -> `CONFLICT/DIVERGENT_PAYLOAD`.
+- new event: `entityVersion <= latest APPLIED version for the entity` -> `CONFLICT/STALE_VERSION` (recorded); no applier -> `REJECTED/SCHEMA` (recorded); else run the injected `DomainApplier(tx, ctx, envelope, storedVersion)` then write the `APPLIED` `SyncEvent` row in the same tx.
+- applier throws -> whole event (incl. its `SyncEvent` row) rolls back -> `REJECTED`, **retriable** (re-push of the same `eventId` applies cleanly).
+- 12 DB-backed tests (`tests/sync/sync-apply.test.ts`) with stub appliers: apply/idempotent/divergent/stale/sequential-version/rollback-retry/no-applier/cross-node.
+
+**`buildPullDelta(ctx, cursor, limit)`** - tenant + branch scoped delta over `students / batches / exams / curriculum`. Cursor is the signed scope-bound codec; a foreign cursor -> full snapshot. Pagination never advances `nextCursor` past an undelivered row (cursor stores the last delivered `createdAt` + the ids delivered at that instant).
+
+### v1 limitation - needs a Codex schema follow-up
+
+The pull-stream models (`Student`, `Batch`, `Exam`, `Enrollment`) have **`createdAt` but no `updatedAt`**, and there is no durable change log. So `buildPullDelta` delivers a full snapshot then only **new** rows incrementally. **Edited rows and hard deletes are not tracked** and `tombstones` is always `[]`. C06 A.6's ordered change log is unmet. Please either add `updatedAt @updatedAt` to those models, or a `SyncChange { tenantId, branchId?, entityType, entityId, op, at }` append-only table. Once `updatedAt` exists, soft-deletes (`status = ARCHIVED/WITHDRAWN`) can surface as tombstones with a one-line change here.
 
 ## Landed (`src/lib/sync/**`, + `tests/sync/**` carve-out acked in `0d9cd7f`)
 
