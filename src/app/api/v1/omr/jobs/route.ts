@@ -3,6 +3,9 @@ import { getSessionContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeterministicOMREngine } from "@/lib/omr/omr-engine";
 import { checkApiPermission } from "@/lib/permissions";
+import { decodeGrayscale } from "@/lib/omr/image-decoder";
+import { extractSheetFromImage, STANDARD_75Q_GEOMETRY } from "@/lib/omr/raster";
+import { objectStorage } from "@/lib/storage/object-storage";
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,8 +38,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
     }
 
-    const body = await req.json();
-    const { examId, batchId, simulatedSheets } = body;
+    const multipart = req.headers.get("content-type")?.includes("multipart/form-data");
+    const form = multipart ? await req.formData() : null;
+    const body = multipart ? { examId: form!.get("examId"), batchId: form!.get("batchId") } : await req.json();
+    const { examId, batchId, simulatedSheets } = body as any;
 
     if (!examId) {
       return NextResponse.json({ error: "Exam ID is required" }, { status: 400 });
@@ -62,7 +67,24 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // If sheets provided, process each through DeterministicOMREngine
+    if (multipart) {
+      const files = form!.getAll("files").filter((value): value is File => value instanceof File);
+      if (!files.length) return NextResponse.json({ error: "At least one OMR file is required" }, { status: 400 });
+      let flaggedCount = 0;
+      for (const file of files) {
+        const bytes = Buffer.from(await file.arrayBuffer());
+        const storedUrl = await objectStorage.put(bytes, file.name);
+        const image = await decodeGrayscale(bytes, file.type);
+        const extraction = extractSheetFromImage(image, STANDARD_75Q_GEOMETRY, file.name);
+        const student = extraction.rollNumber ? await prisma.student.findFirst({ where: { tenantId: session.tenantId, rollNumber: extraction.rollNumber } }) : null;
+        if (extraction.status !== "CONFIDENT") flaggedCount++;
+        await prisma.oMRScan.create({ data: { jobId: job.id, studentId: student?.id || null, detectedRollNumber: extraction.rollNumber || null, sheetImageUrl: storedUrl, confidenceScore: extraction.overallConfidence, status: extraction.status, detectedResponses: JSON.stringify(extraction.responses), ambiguityFlags: JSON.stringify(extraction.ambiguities) } });
+      }
+      const updated = await prisma.oMRJob.update({ where: { id: job.id }, data: { totalSheets: files.length, processedSheets: files.length, flaggedSheets: flaggedCount, status: flaggedCount ? "REVIEW_REQUIRED" : "READY" }, include: { scans: true } });
+      return NextResponse.json({ success: true, job: updated });
+    }
+
+    // Test-only density-vector path.
     const sheetsToProcess =
       simulatedSheets ||
       [
