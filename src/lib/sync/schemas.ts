@@ -29,13 +29,16 @@ export const pushBatchSchema = z.object({
 
 // --- per-entity payloads ---
 
+// Matches what an offline node produces and the OMR_SCAN domain applier consumes.
 const omrScanPayload = z.object({
-  examId: idString,
-  studentRollNumber: z.string().min(1).max(32),
+  jobId: idString,
+  studentId: idString.optional(),
+  detectedRollNumber: z.string().max(32).optional(),
   detectedResponses: z.record(qKey, optionLetter),
-  confidenceScores: z.record(qKey, z.number().min(0).max(1)),
-  manualOverrides: z.record(qKey, optionLetter).optional(),
-  scannedAt: z.string().datetime(),
+  verifiedResponses: z.record(qKey, optionLetter).optional(),
+  confidenceScore: z.number().min(0).max(1).default(0),
+  status: z.enum(["CONFIDENT", "AMBIGUOUS", "UNMATCHED", "OVERRIDDEN", "PROCESSING"]).default("PROCESSING"),
+  scannedAt: z.string().datetime().optional(),
 });
 
 const examResultPayload = z.object({
