@@ -49,4 +49,23 @@ describe("incremental pull on updatedAt", () => {
     const delta = await buildPullDelta(ctx, base.nextCursor, 500);
     expect(delta.tombstones.some((t) => t.entityType === "batches" && t.entityId === world.a.unassignedBatch.id)).toBe(true);
   });
+
+  it("consumes a SyncChange DELETE row as a hard-delete tombstone, scoped to the tenant", async () => {
+    const base = await buildPullDelta(ctx, null, 500);
+    await new Promise((r) => setTimeout(r, 5));
+    await prisma.syncChange.create({ data: {
+      tenantId: world.a.tenant.id, branchId: null, entityType: "students", entityId: "ghost-student-1", operation: "DELETE",
+    } });
+    await prisma.syncChange.create({ data: {
+      tenantId: world.b.tenant.id, branchId: null, entityType: "students", entityId: "other-tenant-ghost", operation: "DELETE",
+    } });
+
+    const delta = await buildPullDelta(ctx, base.nextCursor, 500);
+    expect(delta.tombstones.some((t) => t.entityType === "students" && t.entityId === "ghost-student-1")).toBe(true);
+    expect(delta.tombstones.some((t) => t.entityId === "other-tenant-ghost")).toBe(false);
+
+    // idempotent: already past that cursor position -> not re-delivered
+    const again = await buildPullDelta(ctx, delta.nextCursor, 500);
+    expect(again.tombstones.some((t) => t.entityId === "ghost-student-1")).toBe(false);
+  });
 });

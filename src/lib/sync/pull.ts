@@ -10,9 +10,10 @@ import type { NodeContext, PullDelta } from "./types";
  * `0005`), so edited rows resurface. `CurriculumNode` has no `updatedAt` and is
  * effectively immutable, so it is cursored on `createdAt`.
  *
- * Tombstones: soft-deletes surface as `{ entityType: <stream>, entityId, deletedAt }`
- * - archived students, non-active batches, dropped enrollments. Genuine hard
- * deletes still need a `SyncChange` append-only log (C06 A.6) - not present yet.
+ * Tombstones: soft-deletes surface from a status change (archived students,
+ * non-active batches); hard deletes surface from `SyncChange` DELETE rows that a
+ * delete writer records in the same transaction as the deletion (C06 A.6). Both
+ * emit `{ entityType: <stream|entityType>, entityId, deletedAt }`.
  */
 
 interface CursorPos {
@@ -33,7 +34,8 @@ function parsePosition(raw: string | undefined): CursorPos {
 type Stream = "students" | "batches" | "exams" | "curriculum";
 
 interface Row {
-  stream: Stream;
+  /** one of the 4 model streams, or a SyncChange `entityType` for a hard-delete tombstone */
+  stream: string;
   id: string;
   changedAt: Date;
   data: Record<string, unknown>;
@@ -59,7 +61,11 @@ export async function buildPullDelta(
   const updWin = after ? { updatedAt: { gte: after, lte: boundaryDate } } : { updatedAt: { lte: boundaryDate } };
   const crtWin = after ? { createdAt: { gte: after, lte: boundaryDate } } : { createdAt: { lte: boundaryDate } };
 
-  const [students, batches, exams, curriculum] = await Promise.all([
+  // SyncChange DELETE rows: tenant + branch scoped (branch-null = tenant-wide).
+  const changeWin = after ? { changedAt: { gte: after, lte: boundaryDate } } : { changedAt: { lte: boundaryDate } };
+  const deleteBranch = ctx.branchId ? { OR: [{ branchId: ctx.branchId }, { branchId: null }] } : {};
+
+  const [students, batches, exams, curriculum, deletes] = await Promise.all([
     prisma.student.findMany({
       where: { tenantId: ctx.tenantId, ...branch, ...updWin },
       orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
@@ -80,6 +86,11 @@ export async function buildPullDelta(
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: take + 1,
     }),
+    prisma.syncChange.findMany({
+      where: { tenantId: ctx.tenantId, operation: "DELETE", ...deleteBranch, ...changeWin },
+      orderBy: [{ changedAt: "asc" }, { id: "asc" }],
+      take: take + 1,
+    }),
   ]);
 
   const rows: Row[] = [
@@ -87,6 +98,7 @@ export async function buildPullDelta(
     ...batches.map((r) => ({ stream: "batches" as Stream, id: r.id, changedAt: r.updatedAt, data: r, tombstone: BATCH_DEAD(r.status) })),
     ...exams.map((r) => ({ stream: "exams" as Stream, id: r.id, changedAt: r.updatedAt, data: r, tombstone: false })),
     ...curriculum.map((r) => ({ stream: "curriculum" as Stream, id: r.id, changedAt: r.createdAt, data: r, tombstone: false })),
+    ...deletes.map((c) => ({ stream: c.entityType, id: c.entityId, changedAt: c.changedAt, data: {}, tombstone: true })),
   ]
     .filter((r) => !(pos.ts && r.changedAt.toISOString() === pos.ts && pos.boundaryIds.includes(r.id)))
     .sort((a, b) => a.changedAt.getTime() - b.changedAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
