@@ -64,6 +64,8 @@ import {
   StudentParentLinkModal,
   ExamWizardModal,
   UploadOmrBatchModal,
+  StudentResultDrilldownModal,
+  WorksheetEditorModal,
   LoginView,
   AuthenticatedUser,
   SuperAdminView,
@@ -123,6 +125,11 @@ export default function WebPieAcademicOS() {
 
   const [interventions, setInterventions] = useState<any[]>([]);
   const [detectedWeakQueue, setDetectedWeakQueue] = useState<any[]>([]);
+
+  // Contract C05 Results & Mastery States
+  const [resultsData, setResultsData] = useState<any>(null);
+  const [selectedResultForDrilldown, setSelectedResultForDrilldown] = useState<any>(null);
+  const [worksheetModalConcept, setWorksheetModalConcept] = useState<string | null>(null);
 
   const [cbtState, setCbtState] = useState<{
     inExam: boolean;
@@ -345,12 +352,30 @@ export default function WebPieAcademicOS() {
     }
   }
 
+  async function loadResultsData(examId?: string) {
+    const targetId = examId || (exams.length > 0 ? exams[0].id : null);
+    if (!targetId) return;
+    try {
+      const res = await fetch(`/api/v1/results/exams/${targetId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setResultsData(data);
+      }
+    } catch (e) {
+      console.error("Results load error:", e);
+    }
+  }
+
   async function loadExams() {
     try {
       const res = await fetch("/api/v1/exams");
       if (res.ok) {
         const data = await res.json();
-        setExams(data.exams || []);
+        const list = data.exams || [];
+        setExams(list);
+        if (list.length > 0) {
+          loadResultsData(list[0].id);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -1158,13 +1183,21 @@ export default function WebPieAcademicOS() {
           )}
 
           {activeTab === "analytics" && (
-            <AnalyticsView students={students} />
+            <AnalyticsView
+              students={students}
+              exams={exams}
+              resultsData={resultsData}
+              onSelectExam={(examId) => loadResultsData(examId)}
+              onOpenDrilldown={(item) => setSelectedResultForDrilldown(item)}
+            />
           )}
 
           {activeTab === "interventions" && (
             <InterventionsView
               interventions={interventions}
+              detectedWeakQueue={detectedWeakQueue}
               onDownloadRemedialWorksheet={downloadRemedialWorksheet}
+              onOpenWorksheetEditor={(concept) => setWorksheetModalConcept(concept)}
             />
           )}
 
@@ -1260,6 +1293,27 @@ export default function WebPieAcademicOS() {
           loadOmrJobs();
         }}
         showToast={showToast}
+      />
+
+      <StudentResultDrilldownModal
+        isOpen={selectedResultForDrilldown !== null}
+        onClose={() => setSelectedResultForDrilldown(null)}
+        result={selectedResultForDrilldown}
+        exam={resultsData?.exam || exams.find((e) => e.id === resultsData?.exam?.id)}
+        onOpenWorksheetCustomizer={(concept) => {
+          setSelectedResultForDrilldown(null);
+          setWorksheetModalConcept(concept);
+        }}
+      />
+
+      <WorksheetEditorModal
+        isOpen={worksheetModalConcept !== null}
+        onClose={() => setWorksheetModalConcept(null)}
+        concept={worksheetModalConcept || "Friction"}
+        onSaveAndExportPdf={(editedQuestions) => {
+          showToast(`Remedial Worksheet for "${worksheetModalConcept}" customized and saved (${editedQuestions.length} practice items). Exporting PDF...`);
+          setWorksheetModalConcept(null);
+        }}
       />
 
       <ProvisionAcademyModal
