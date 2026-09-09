@@ -298,7 +298,7 @@ export function ExamWizardModal({
     }
   }
 
-  // Finalize Exam (Contract C03)
+  // Finalize Exam (Contract C03: DRAFT -> IN_REVIEW -> FINALIZED)
   async function handleFinalizeExam() {
     setIsSubmitting(true);
     setValidationError(null);
@@ -321,23 +321,68 @@ export function ExamWizardModal({
     };
 
     try {
+      // Step 1: Create DRAFT
       const res = await fetch("/api/v1/exams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const created = data.exam || data;
-        setCreatedExamResult(created);
-        onExamCreated(created);
-      } else {
+      if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         setValidationError(
-          errData.error || "Failed to finalize exam. Ensure blueprint totals are valid."
+          errData.error || "Failed to create assessment draft. Ensure blueprint totals match selected questions."
         );
+        return;
       }
+
+      const data = await res.json();
+      const createdDraft = data.exam || data;
+      const examId = createdDraft.id;
+      const version1 = createdDraft.version || 1;
+
+      // Step 2: Transition to IN_REVIEW
+      const reviewRes = await fetch(`/api/v1/exams/${examId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedVersion: version1 }),
+      });
+
+      if (!reviewRes.ok) {
+        const errData = await reviewRes.json().catch(() => ({}));
+        setCreatedExamResult(createdDraft);
+        onExamCreated(createdDraft);
+        setValidationError(
+          errData.error || "Assessment created as DRAFT, but review validation failed."
+        );
+        return;
+      }
+
+      const reviewData = await reviewRes.json();
+      const inReviewExam = reviewData.exam || reviewData;
+      const version2 = inReviewExam.version || (version1 + 1);
+
+      // Step 3: Finalize & Lock Immutable QuestionVersion Snapshot
+      const finalizeRes = await fetch(`/api/v1/exams/${examId}/finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedVersion: version2, idempotencyKey }),
+      });
+
+      if (!finalizeRes.ok) {
+        const errData = await finalizeRes.json().catch(() => ({}));
+        setCreatedExamResult(inReviewExam);
+        onExamCreated(inReviewExam);
+        setValidationError(
+          errData.error || "Assessment submitted for review, but finalization was rejected."
+        );
+        return;
+      }
+
+      const finalData = await finalizeRes.json();
+      const finalized = finalData.exam || finalData;
+      setCreatedExamResult(finalized);
+      onExamCreated(finalized);
     } catch (err: any) {
       setValidationError(`Network error while finalizing exam: ${err.message}`);
     } finally {

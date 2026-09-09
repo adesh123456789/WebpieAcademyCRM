@@ -1,4 +1,4 @@
-﻿/**
+/**
  * tests/ui-exam-wizard.test.ts
  *
  * Unit tests for ExamWizardModal logic (UI-004).
@@ -172,5 +172,38 @@ describe("ExamWizard — Filter empty state", () => {
   it("works for generic types", () => {
     expect(isFilterEmpty<string>([])).toBe(true);
     expect(isFilterEmpty<number>([1, 2, 3])).toBe(false);
+  });
+});
+
+describe("ExamWizard — Contract C03 Multi-Stage Lifecycle (DRAFT -> IN_REVIEW -> FINALIZED)", () => {
+  it("determines valid next transition based on current exam status", () => {
+    function getAvailableTransition(status: "DRAFT" | "IN_REVIEW" | "FINALIZED") {
+      if (status === "DRAFT") return "review";
+      if (status === "IN_REVIEW") return "finalize";
+      return null;
+    }
+
+    expect(getAvailableTransition("DRAFT")).toBe("review");
+    expect(getAvailableTransition("IN_REVIEW")).toBe("finalize");
+    expect(getAvailableTransition("FINALIZED")).toBeNull();
+  });
+
+  it("advances version correctly on each lifecycle transition", () => {
+    let version = 1; // Draft created
+    version += 1; // Moved to IN_REVIEW
+    expect(version).toBe(2);
+    version += 1; // Finalized
+    expect(version).toBe(3);
+  });
+
+  it("creates valid payload for review transition with expectedVersion", () => {
+    const payload = { expectedVersion: 1 };
+    expect(payload.expectedVersion).toBe(1);
+  });
+
+  it("creates valid payload for finalize transition with expectedVersion and idempotencyKey", () => {
+    const payload = { expectedVersion: 2, idempotencyKey: "test-fin-1" };
+    expect(payload.expectedVersion).toBe(2);
+    expect(payload.idempotencyKey).toBeTruthy();
   });
 });

@@ -15,6 +15,8 @@ import {
   Award,
   Layers,
   Sparkles,
+  Check,
+  CheckCircle2,
 } from "lucide-react";
 
 export interface ExamRecord {
@@ -26,6 +28,7 @@ export interface ExamRecord {
   totalMarks: number;
   totalQuestions?: number;
   status: "DRAFT" | "IN_REVIEW" | "FINALIZED";
+  version?: number;
   isCbtEnabled?: boolean;
   finalizedAt?: string;
   createdAt?: string;
@@ -37,12 +40,14 @@ interface ExamsViewProps {
   exams: ExamRecord[];
   onFetchArtifact: (examId: string, type: "omr" | "question_paper" | "answer_key") => void;
   onOpenCreateExamModal?: () => void;
+  onTransitionExam?: (examId: string, action: "review" | "finalize", expectedVersion?: number) => void;
 }
 
 export const ExamsView: React.FC<ExamsViewProps> = ({
   exams = [],
   onFetchArtifact,
   onOpenCreateExamModal,
+  onTransitionExam,
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("ALL");
@@ -271,8 +276,32 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
                 </div>
               </div>
 
-              {/* Artifact Actions */}
+              {/* Artifact & Lifecycle Actions */}
               <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                {/* DRAFT -> IN_REVIEW action */}
+                {ex.status === "DRAFT" && onTransitionExam && (
+                  <button
+                    type="button"
+                    onClick={() => onTransitionExam(ex.id, "review", ex.version || 1)}
+                    className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-2xs cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
+                    Submit for Review
+                  </button>
+                )}
+
+                {/* IN_REVIEW -> FINALIZED action */}
+                {ex.status === "IN_REVIEW" && onTransitionExam && (
+                  <button
+                    type="button"
+                    onClick={() => onTransitionExam(ex.id, "finalize", ex.version || 2)}
+                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-2xs cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Finalize & Lock Snapshot
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => onFetchArtifact(ex.id, "omr")}

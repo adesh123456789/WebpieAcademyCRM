@@ -544,6 +544,44 @@ export default function WebPieAcademicOS() {
     }
   }
 
+  async function handleTransitionExam(
+    examId: string,
+    action: "review" | "finalize",
+    expectedVersion?: number
+  ) {
+    try {
+      const endpoint =
+        action === "review"
+          ? `/api/v1/exams/${examId}/review`
+          : `/api/v1/exams/${examId}/finalize`;
+      const body =
+        action === "review"
+          ? { expectedVersion: expectedVersion || 1 }
+          : {
+              expectedVersion: expectedVersion || 2,
+              idempotencyKey: `fin-${Date.now()}`,
+            };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        showToast(
+          `Assessment successfully transitioned to ${data.exam?.status || action}!`
+        );
+        loadExams();
+      } else {
+        showToast(`Transition failed: ${data.error || "Action rejected"}`);
+      }
+    } catch (e: any) {
+      showToast(`Error: ${e.message}`);
+    }
+  }
+
   async function runSimulatedOmrScan() {
     if (exams.length === 0) return;
     try {
@@ -1083,6 +1121,7 @@ export default function WebPieAcademicOS() {
               exams={exams}
               onFetchArtifact={fetchArtifact}
               onOpenCreateExamModal={() => setIsExamWizardOpen(true)}
+              onTransitionExam={handleTransitionExam}
             />
           )}
 
