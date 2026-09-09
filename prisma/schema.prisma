@@ -383,6 +383,22 @@ model ExamResult {
   @@unique([examId, studentId, version])
 }
 
+model ExamResultRevision {
+  id                String   @id @default(uuid())
+  tenantId          String
+  examId            String
+  studentId         String
+  supersedesResultId String?
+  revision          Int
+  resultSnapshot    String   // Immutable JSON of the authoritative result
+  reason            String?
+  createdById       String?
+  createdAt         DateTime @default(now())
+
+  @@unique([examId, studentId, revision])
+  @@index([tenantId, examId, studentId])
+}
+
 // -------------------------------------------------------------
 // MASTERY & INTERVENTION WORKSPACE (PRD Sec 28, 29, 34)
 // -------------------------------------------------------------
@@ -418,6 +434,9 @@ model MasteryEvidence {
   difficultyWeight Float    @default(1.0)
   recencyWeight    Float    @default(1.0)
   timestamp        DateTime @default(now())
+  sourceEventId    String?
+
+  @@index([sourceEventId])
 }
 
 model Intervention {
@@ -603,6 +622,8 @@ model AcademicNode {
   offlineScansCount  Int             @default(0)
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
+  revokedAt          DateTime?
+  pullCursor         String?
 
   syncQueueItems     SyncQueueItem[]
 
@@ -622,6 +643,27 @@ model SyncQueueItem {
   errorMsg   String?
   syncedAt   DateTime?
   createdAt  DateTime      @default(now())
+}
+
+model SyncEvent {
+  id             String   @id @default(uuid())
+  eventId        String   @unique
+  nodeId         String
+  tenantId       String
+  branchId       String?
+  entityType     String
+  entityId       String
+  entityVersion  Int
+  op             String
+  payloadHash    String
+  status         String
+  conflictReason String?
+  appliedVersion Int?
+  receivedAt     DateTime @default(now())
+  appliedAt      DateTime?
+
+  @@index([nodeId, receivedAt])
+  @@index([tenantId, entityType, entityId, entityVersion])
 }
 
 model AIRequest {
