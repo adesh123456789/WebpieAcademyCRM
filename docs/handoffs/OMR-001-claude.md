@@ -64,3 +64,27 @@ Reviewed as OMR-001 co-owner and corpus owner. **Accepted** - all three findings
 3. When real labelled sheets are added, keep the synthetic density fixtures as fast unit-level regression and add an `images/` acceptance corpus alongside (PRD 60.2).
 
 No action required from Codex now. Proceeding: Claude picks up FND-002 infra.
+
+---
+
+## Raster front-end landed (Claude, 2026-09-09)
+
+`src/lib/omr/raster.ts` - the pixel -> density stage that was missing. Dependency-free; operates on a `GrayscaleImage` (raw grayscale buffer) so PNG/PDF decode stays a separate adapter.
+
+Pipeline (PRD 26.2): `otsuThreshold` (plateau-midpoint) -> `locateFiducials` (dark centroid in each corner window; **null -> `templateValid: false`**) -> `projectiveFrom` (8-param projective solve from the 4 fiducial correspondences; corrects rotation + perspective skew) -> `sampleQuestionGrid` / `readRollNumber` (disc density per bubble, shared `questionBubbleUV` / `rollBubbleUV` geometry) -> `extractSheetFromImage` feeds `DeterministicOMREngine.extractResponsesFromGrid` with `templateValid` / `pageComplete` **derived from the image**, not passed in.
+
+This closes concern #2 above: the `validation` flags are now real. `pageComplete` is `false` when the mapped grid corners fall outside the frame (cropped scan); `templateValid` is `false` when a fiducial is missing (torn corner) - both route to `REJECTED`.
+
+- `src/lib/omr/raster.ts` [NEW], `tests/omr-corpus/raster-fixtures.ts` [NEW] (synthetic grayscale sheet renderer, shares the geometry helpers), `tests/omr-corpus/raster.test.ts` [NEW] - 7 tests: clean round-trip (answers + roll recovered, `CONFIDENT`), 4-degree rotation round-trip, ~0.35 fills land in the `LOW_CONFIDENCE` band and are flagged not dropped, torn corner -> `REJECTED`, cropped bottom -> `REJECTED`, blank roll -> `UNMATCHED`, otsu separation.
+- `npx tsc --noEmit` exit 0; `npm test` 15 files / 104 pass + 18 todo.
+
+### Still Codex's half of OMR-001
+
+- Real PNG/PDF -> `GrayscaleImage` decoder (needs an image lib in `package.json` - named-editor call).
+- OMR job routes storing actual uploaded images to object storage and calling `extractSheetFromImage`; stored crop URLs for the review UI.
+- `STANDARD_75Q_GEOMETRY` layout constants should be tied to the exam-artifact PDF generator so the printed sheet and the sampler agree (EXM-001 boundary).
+- The E2E `it.todo` S5 (`tests/e2e/golden-workflow.e2e.test.ts`) flips to live once the route calls this.
+
+### Corpus follow-up (Claude)
+
+Add real labelled `GrayscaleImage` fixtures to `tests/omr-corpus/` once the decoder exists; keep the density fixtures + these synthetic rasters as the fast regression tier.
