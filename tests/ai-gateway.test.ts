@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "../src/lib/prisma";
 import { createTestWorld, type TestWorld } from "./support/fixtures";
 import { AIGateway } from "../src/lib/ai/ai-gateway";
-import { generatedQuestionSchema, modelQuestionListSchema, type AIContext } from "../src/lib/ai/schemas";
+import { generatedQuestionSchema, modelQuestionListSchema, AIScopeError, type AIContext } from "../src/lib/ai/schemas";
 
 /**
  * CLD-002 sibling for the AI lane: AI-001 gateway behaviour.
@@ -214,5 +214,78 @@ describe("AI Gateway - output schemas reject malformed model output (AI-001)", (
       },
     };
     expect(generatedQuestionSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe("AI Gateway - Teacher Copilot (AI-001, AC-018)", () => {
+  const teacherCtx = () => ({
+    tenantId: world.a.tenant.id,
+    userId: world.a.users.teacher.id,
+    role: "TEACHER",
+    branchId: world.a.branch.id,
+    traceId: `t-${Math.random().toString(36).slice(2)}`,
+    scopes: world.a.users.teacher.scopes,
+  });
+
+  beforeAll(async () => {
+    // in-scope weakness (student is enrolled in the teacher's assigned batch)
+    await prisma.masteryScore.create({ data: {
+      tenantId: world.a.tenant.id, studentId: world.a.student.id, subject: "PHYSICS", chapter: "Mechanics",
+      concept: "Friction", score: 34, state: "WEAK",
+    } });
+    // out-of-scope weakness (sibling is in the unassigned batch)
+    await prisma.masteryScore.create({ data: {
+      tenantId: world.a.tenant.id, studentId: world.a.sibling.id, subject: "PHYSICS", chapter: "Optics",
+      concept: "Refraction", score: 20, state: "CRITICAL",
+    } });
+  });
+
+  it("AC-018: refuses a batch outside the teacher's assigned scope", async () => {
+    await expect(
+      AIGateway.copilotWeaknessPlan({ batchId: world.a.unassignedBatch.id }, teacherCtx()),
+    ).rejects.toBeInstanceOf(AIScopeError);
+  });
+
+  it("builds a PROPOSED plan only from evidence inside scope, and writes no side effects", async () => {
+    const before = await prisma.intervention.count({ where: { tenantId: world.a.tenant.id } });
+    const res = await AIGateway.copilotWeaknessPlan({ batchId: world.a.batch.id }, teacherCtx());
+
+    expect(res.data).not.toBeNull();
+    const plan = res.data!;
+    expect(plan.status).toBe("PROPOSED");
+    expect(plan.topic).toBe("Friction"); // in-scope
+    expect(plan.retrievalScope).toBe("TENANT_PRIVATE");
+    expect(plan.recommendedActions.length).toBeGreaterThan(0);
+    expect(JSON.stringify(plan)).not.toContain("Refraction"); // out-of-scope weakness never surfaces
+    expect(await prisma.intervention.count({ where: { tenantId: world.a.tenant.id } })).toBe(before);
+
+    const req = await prisma.aIRequest.findFirst({
+      where: { tenantId: world.a.tenant.id, task: "copilot.query" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(req).toMatchObject({ provider: "webpie-analytics" });
+    expect(plan.aiRequestId).toBe(req!.id);
+  });
+
+  it("returns null when there is no weak concept in scope", async () => {
+    const res = await AIGateway.copilotWeaknessPlan({ batchId: world.a.batch.id, subject: "CHEMISTRY" }, teacherCtx());
+    expect(res.data).toBeNull();
+  });
+
+  it("an owner (no batch scopes) may query any batch in the tenant", async () => {
+    const res = await AIGateway.copilotWeaknessPlan({ batchId: world.a.batch.id }, {
+      tenantId: world.a.tenant.id, userId: world.a.users.owner.id, role: "OWNER", branchId: null,
+      traceId: "owner-1", scopes: world.a.users.owner.scopes,
+    });
+    expect(res.data?.topic).toBe("Friction");
+  });
+
+  it("AC-015: cannot reach another tenant's batch", async () => {
+    await expect(
+      AIGateway.copilotWeaknessPlan({ batchId: world.b.batch.id }, {
+        tenantId: world.a.tenant.id, userId: world.a.users.owner.id, role: "OWNER", branchId: null,
+        traceId: "x", scopes: null,
+      }),
+    ).rejects.toBeInstanceOf(AIScopeError);
   });
 });

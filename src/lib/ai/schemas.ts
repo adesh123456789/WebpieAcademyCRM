@@ -12,7 +12,7 @@ export type Difficulty = (typeof DIFFICULTY)[number];
 export const LANGUAGE = ["en", "hi", "mr"] as const;
 export type Language = (typeof LANGUAGE)[number];
 
-export type AITask = "question.generate" | "report.parentSummary";
+export type AITask = "question.generate" | "report.parentSummary" | "copilot.query";
 
 export type AIOutcome = "MODEL" | "FALLBACK_BANK" | "FALLBACK_TEMPLATE" | "ERROR";
 
@@ -97,6 +97,32 @@ export const parentSummarySchema = z.object({
 });
 
 export type ParentSummary = z.infer<typeof parentSummarySchema>;
+
+// --- copilot.query (AI-001 scoped Teacher Copilot) ---
+
+export const copilotActionSchema = z.object({
+  type: z.enum(["REMEDIAL_WORKSHEET", "EXTRA_DOUBT_SESSION", "ASSIGNMENT_RETEST"]),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  estimatedMinutes: z.number().int().positive().max(240),
+});
+
+export const copilotActionPlanSchema = z.object({
+  id: z.string().min(1),
+  topic: z.string().min(1),
+  subject: z.string().min(1),
+  targetBatch: z.string().min(1),
+  evidenceSummary: z.string().min(1),
+  recommendedActions: z.array(copilotActionSchema).min(1),
+  /** where the evidence/context came from - always internal, tenant-scoped */
+  retrievalScope: z.enum(["TENANT_PRIVATE", "WEBPIE_APPROVED_BANK"]),
+  confidenceScore: z.number().min(0).max(1),
+  aiRequestId: z.string().min(1),
+  /** this is a proposal - confirming it is a separate authorized action */
+  status: z.literal("PROPOSED"),
+});
+
+export type CopilotActionPlan = z.infer<typeof copilotActionPlanSchema>;
 
 // --- task inputs ---
 

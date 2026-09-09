@@ -1,5 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { metric, traceLogger } from "@/lib/observability";
+import { copilotWeaknessPlan } from "./copilot";
 import { selectApprovedBankQuestions } from "./bank-fallback";
 import { parentSummaryPrompt, questionGeneratePrompt } from "./prompts";
 import { recordAIRequest } from "./provenance";
@@ -248,6 +249,10 @@ export class AIGateway {
     if (!check.success) throw new Error("parent summary template produced invalid output");
     return { data: check.data, outcome: "FALLBACK_TEMPLATE", provenance: summary.provenance };
   }
+
+  // ---------- copilot.query (scoped Teacher Copilot, AI-001) ----------
+
+  static copilotWeaknessPlan = copilotWeaknessPlan;
 
   private static blankProvenance(
     tpl: { id: string; version: string },
