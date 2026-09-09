@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { STANDARD_75Q_GEOMETRY, questionBubbleUV, rollBubbleUV } from "./raster";
 
 export interface PDFInstituteBranding {
   instituteName: string;
@@ -26,18 +27,12 @@ export class WebPiePDFGenerator {
     const pageHeight = 297;
 
     // 1. Four-Corner Fiducial Markers (Critical for CV anchor alignment)
-    const markerSize = 8;
-    const margin = 10;
+    const geometry = STANDARD_75Q_GEOMETRY;
+    const markerHalfWidth = geometry.layout.fiducialRadius * pageWidth;
     doc.setFillColor(0, 0, 0);
-
-    // Top-Left
-    doc.rect(margin, margin, markerSize, markerSize, "F");
-    // Top-Right
-    doc.rect(pageWidth - margin - markerSize, margin, markerSize, markerSize, "F");
-    // Bottom-Left
-    doc.rect(margin, pageHeight - margin - markerSize, markerSize, markerSize, "F");
-    // Bottom-Right
-    doc.rect(pageWidth - margin - markerSize, pageHeight - margin - markerSize, markerSize, markerSize, "F");
+    for (const [u, v] of [[geometry.layout.fiducialInset, geometry.layout.fiducialInset], [1 - geometry.layout.fiducialInset, geometry.layout.fiducialInset], [1 - geometry.layout.fiducialInset, 1 - geometry.layout.fiducialInset], [geometry.layout.fiducialInset, 1 - geometry.layout.fiducialInset]]) {
+      doc.rect(u * pageWidth - markerHalfWidth, v * pageHeight - markerHalfWidth, markerHalfWidth * 2, markerHalfWidth * 2, "F");
+    }
 
     // 2. Header
     doc.setFont("helvetica", "bold");
@@ -71,9 +66,10 @@ export class WebPiePDFGenerator {
     doc.setFontSize(6);
     doc.setFont("helvetica", "normal");
     for (let row = 0; row < 10; row++) {
-      const y = 57 + row * 4.2;
-      for (let col = 0; col < 6; col++) {
-        const x = startX + col * (boxW + 2) + boxW / 2;
+      for (let col = 0; col < geometry.rollNumberDigits; col++) {
+        const uv = rollBubbleUV(geometry, col, row);
+        const x = uv.x * pageWidth;
+        const y = uv.y * pageHeight;
         doc.circle(x, y, 1.6);
         doc.text(String(row), x, y + 0.6, { align: "center" });
       }
@@ -103,39 +99,19 @@ export class WebPiePDFGenerator {
 
     // 4. Questions Bubble Grid (3 Columns: Q1-25, Q26-50, Q51-75)
     doc.line(20, 96, pageWidth - 20, 96);
-    const colStarts = [22, 85, 148];
     const options = ["A", "B", "C", "D"];
-    const qPerCol = 25;
-
-    for (let c = 0; c < 3; c++) {
-      const baseColX = colStarts[c];
-      const startQ = c * qPerCol + 1;
-      const endQ = Math.min((c + 1) * qPerCol, branding.totalQuestions);
-
-      // Header
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "bold");
-      doc.text("Q.No", baseColX, 102);
-      for (let o = 0; o < 4; o++) {
-        doc.text(options[o], baseColX + 11 + o * 7.5, 102, { align: "center" });
-      }
-      doc.line(baseColX - 2, 104, baseColX + 38, 104);
-
-      // Rows
-      doc.setFont("helvetica", "normal");
-      for (let q = startQ; q <= endQ; q++) {
-        const rowIdx = q - startQ;
-        const rowY = 109 + rowIdx * 6.5;
-
-        doc.setFontSize(7.5);
-        doc.text(String(q).padStart(2, "0"), baseColX, rowY + 0.8);
-
-        for (let o = 0; o < 4; o++) {
-          const bubbleX = baseColX + 11 + o * 7.5;
-          doc.circle(bubbleX, rowY, 2.2);
+    doc.setFont("helvetica", "normal");
+    for (let q = 1; q <= Math.min(branding.totalQuestions, geometry.totalQuestions); q++) {
+      const first = questionBubbleUV(geometry, q, 0);
+      doc.setFontSize(7.5);
+      doc.text(String(q).padStart(2, "0"), first.x * pageWidth - 8, first.y * pageHeight + 0.8);
+      for (let o = 0; o < geometry.optionsPerQuestion; o++) {
+          const uv = questionBubbleUV(geometry, q, o);
+          const bubbleX = uv.x * pageWidth;
+          const rowY = uv.y * pageHeight;
+          doc.circle(bubbleX, rowY, geometry.layout.bubbleRadius * pageWidth);
           doc.setFontSize(5.5);
           doc.text(options[o], bubbleX, rowY + 0.6, { align: "center" });
-        }
       }
     }
 

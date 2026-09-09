@@ -188,7 +188,18 @@ describe("Golden loop / Stage 2 - exam builder & artifacts", () => {
     expect(res.status).not.toBe(500);
   });
 
-  it.todo("S4a: generated PDF/OMR carry branding, correct pagination and a scannable 4-corner fiducial - blocked on EXM-001 / OMR-001");
+  it("S4a: generated PDF/OMR carries branding and sampler-aligned 4-corner fiducials", async () => {
+    const res = await call(artifactsGet, `/api/v1/exams/${world.a.exam.id}/artifacts?type=omr`, {
+      token: teacherToken,
+      params: { id: world.a.exam.id },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.dataUri).toMatch(/^data:application\/pdf/);
+    expect(res.body.templateId).toBe("WEBPIE_STANDARD_75Q");
+    expect(res.body.fiducialCount).toBe(4);
+    expect(res.body.geometry.totalQuestions).toBe(75);
+    expect(res.body.branding).toMatchObject({ instituteName: world.a.tenant.name, examCode: world.a.exam.code });
+  });
 });
 
 describe("Golden loop / Stage 3 - OMR capture & review", () => {

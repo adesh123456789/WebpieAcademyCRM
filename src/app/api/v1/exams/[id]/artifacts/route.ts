@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { WebPiePDFGenerator } from "@/lib/omr/pdf-generator";
 import { usePinnedQuestions } from "@/lib/exams/lifecycle";
 import { checkApiPermission } from "@/lib/permissions";
+import { STANDARD_75Q_GEOMETRY } from "@/lib/omr/raster";
 
 export async function GET(
   req: NextRequest,
@@ -54,6 +55,10 @@ export async function GET(
         type: "omr",
         dataUri: pdfDataUri,
         filename: `${exam.code}_OMR_SHEET.pdf`,
+        templateId: STANDARD_75Q_GEOMETRY.templateId,
+        geometry: STANDARD_75Q_GEOMETRY,
+        fiducialCount: 4,
+        branding: { instituteName: branding.instituteName, examTitle: branding.examTitle, examCode: branding.examCode },
       });
     }
 
