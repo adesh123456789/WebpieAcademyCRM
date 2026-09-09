@@ -118,6 +118,15 @@ describe("metric signals", () => {
     });
   });
 
+  it("emits even when LOG_LEVEL suppresses logs (metrics are not level-gated)", () => {
+    process.env.LOG_LEVEL = "error";
+    log.info("should.be.dropped");
+    metric("apiRequest", 1, { route: "/x" });
+    const events = parsed().map((r) => r.event);
+    expect(events).not.toContain("should.be.dropped");
+    expect(events).toContain("metric");
+  });
+
   it("catalog covers every PRD 42 dashboard with alert thresholds where it matters", () => {
     const dashboards = new Set(Object.values(SIGNALS).map((s) => s.dashboard));
     expect(dashboards).toEqual(new Set(["cloud", "omr", "ai", "sync", "product", "security"]));

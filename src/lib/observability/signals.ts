@@ -1,10 +1,10 @@
-import { log, type LogFields } from "./logger";
+import { emitLine, type LogFields } from "./logger";
 
 /**
  * Monitoring signal catalog (PRD Section 42). Until a real metrics backend is
- * wired, `metric()` emits a structured `metric` log line that a collector can
- * scrape; the catalog keeps signal names, units and alert thresholds in one place
- * so the operator dashboards (OBS-002/004) and the launch war-room agree.
+ * wired, `metric()` emits a structured `metric` record via its OWN sink - never
+ * the logger - so samples are not lost when LOG_LEVEL is raised in production
+ * (OBS-002/004). Point `setMetricSink` at a collector, StatsD bridge, etc.
  */
 
 export type Dashboard = "cloud" | "omr" | "ai" | "sync" | "product" | "security";
@@ -56,8 +56,48 @@ export const SIGNALS = {
 
 export type SignalName = keyof typeof SIGNALS;
 
-/** Emit a metric sample as a structured log line. Extra fields must be scalars (OBS-003). */
+export interface MetricSample {
+  ts: string;
+  event: "metric";
+  metric: string;
+  dashboard: Dashboard;
+  unit: SignalDef["unit"];
+  value: number;
+  [field: string]: string | number | boolean | null | undefined;
+}
+
+export type MetricSink = (sample: MetricSample) => void;
+
+/**
+ * Default sink: one JSON line through the shared observability output stream
+ * (so one `setSink` captures logs + metrics), but UNCONDITIONALLY - never
+ * LOG_LEVEL-gated - unless METRICS=off. Replace with `setMetricSink` to forward
+ * to a dedicated metrics backend.
+ */
+export let metricSink: MetricSink = (sample) => {
+  if ((process.env.METRICS || "").toLowerCase() === "off") return;
+  emitLine(JSON.stringify(sample));
+};
+
+export function setMetricSink(fn: MetricSink): void {
+  metricSink = fn;
+}
+
+/** Emit a metric sample. Extra fields must be scalars (OBS-003). */
 export function metric(name: SignalName, value: number, fields?: LogFields): void {
   const def = SIGNALS[name];
-  log.info("metric", { metric: def.key, dashboard: def.dashboard, unit: def.unit, value, ...(fields ?? {}) });
+  const sample: MetricSample = {
+    ts: new Date().toISOString(),
+    event: "metric",
+    metric: def.key,
+    dashboard: def.dashboard,
+    unit: def.unit,
+    value,
+  };
+  if (fields) for (const [k, v] of Object.entries(fields)) if (v !== undefined) sample[k] = v;
+  try {
+    metricSink(sample);
+  } catch {
+    /* never throw into the caller */
+  }
 }

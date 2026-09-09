@@ -43,6 +43,17 @@ export function setSink(fn: Sink): void {
   sink = fn;
 }
 
+/** Write one raw line through the current sink, swallowing sink errors. Used by
+ *  the logger and by the default metric sink so both share one output stream
+ *  (and one `setSink` for capture/routing) while metrics stay level-independent. */
+export function emitLine(line: string): void {
+  try {
+    sink(line);
+  } catch {
+    /* output must never throw into the caller */
+  }
+}
+
 function errShape(err: unknown): LogFields {
   if (err instanceof Error) {
     return { errName: err.name, errMessage: err.message, errStack: err.stack?.split("\n").slice(0, 4).join(" | ") };
