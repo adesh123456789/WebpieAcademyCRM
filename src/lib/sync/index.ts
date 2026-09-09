@@ -29,3 +29,4 @@ export { classifyConflict, type ConflictDecision } from "./conflict";
 export { verifyNodeSignature, nodeSignature } from "./node-auth";
 export { applyPushEvents } from "./apply";
 export { buildPullDelta } from "./pull";
+export { domainAppliers } from "./domain-appliers";

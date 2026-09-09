@@ -137,6 +137,7 @@ model Batch {
   schedule     String?   // e.g. "Mon-Wed-Fri 08:00-11:00"
   status       String    @default("ACTIVE")
   createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   enrollments  Enrollment[]
   attendanceSessions AttendanceSession[]
@@ -162,6 +163,7 @@ model Student {
   status          String   @default("ACTIVE") // "ACTIVE" | "ARCHIVED" | "ALUMNI"
   metadata        String?  // JSON
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   enrollments     Enrollment[]
   parentLinks     StudentParentLink[]
@@ -214,6 +216,7 @@ model Enrollment {
   batch      Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
   status     String   @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "DROPPED"
   enrolledAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([studentId, batchId])
 }
@@ -297,6 +300,7 @@ model Exam {
   createdById     String?
   finalizedAt     DateTime?
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   examQuestions   ExamQuestion[]
   omrJobs         OMRJob[]

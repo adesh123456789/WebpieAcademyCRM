@@ -114,6 +114,7 @@ export class AcademicNodeSyncService {
     });
 
     if (!node) return null;
+    if (node.revokedAt || (node.tokenExpiresAt && node.tokenExpiresAt <= new Date())) return null;
 
     // Heartbeat update
     await prisma.academicNode.update({
