@@ -36,6 +36,13 @@ export async function POST(
     if (!job) {
       return NextResponse.json({ error: "OMR Job not found" }, { status: 404 });
     }
+    const body = await req.json().catch(() => ({}));
+    const idempotencyKey = typeof body.idempotencyKey === "string" ? body.idempotencyKey : null;
+    if (!idempotencyKey) return NextResponse.json({ error: "idempotencyKey is required" }, { status: 400 });
+    if (job.status === "FINALIZED") {
+      if ((job as any).finalizeKey === idempotencyKey) return NextResponse.json({ success: true, evaluatedCount: job.processedSheets, replay: true });
+      return NextResponse.json({ error: "OMR job already finalized" }, { status: 409 });
+    }
     const blockedScans = job.scans.filter((scan) => ["AMBIGUOUS", "UNMATCHED", "REJECTED"].includes(scan.status));
     if (blockedScans.length > 0 || job.status === "REVIEW_REQUIRED") {
       return NextResponse.json({ error: "OMR review is incomplete", blockedSheets: blockedScans.length }, { status: 409 });
@@ -156,13 +163,16 @@ export async function POST(
     }
 
     // Mark job and exam finalized
-    await prisma.oMRJob.update({
+    const claimed = await (prisma.oMRJob as any).updateMany({
       where: { id: job.id },
       data: {
         status: "FINALIZED",
         finalizedAt: new Date(),
+        finalizeKey: idempotencyKey,
+        version: { increment: 1 },
       },
     });
+    if (claimed.count !== 1) return NextResponse.json({ error: "OMR job finalization conflict" }, { status: 409 });
 
     await prisma.exam.update({
       where: { id: job.examId },

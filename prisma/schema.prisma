@@ -338,6 +338,8 @@ model OMRJob {
   flaggedSheets   Int      @default(0)
   createdAt       DateTime @default(now())
   finalizedAt     DateTime?
+  finalizeKey     String?
+  version         Int      @default(1)
 
   scans           OMRScan[]
 }
