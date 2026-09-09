@@ -43,7 +43,11 @@ export async function GET(req: NextRequest) {
       .map((m) => m.concept);
 
     // AI/Deterministic multilingual parent summary
-    const totalStudents = await prisma.student.count({ where: { tenantId: session.tenantId, status: "ACTIVE" } });
+    // Use the authoritative result cohort for rank/percentile narratives; the
+    // tenant's total active roster is not necessarily the exam cohort.
+    const totalStudents = latestResult
+      ? await prisma.examResult.count({ where: { tenantId: session.tenantId, examId: latestResult.examId } })
+      : await prisma.student.count({ where: { tenantId: session.tenantId, status: "ACTIVE" } });
     const summaryResult = await AIGateway.parentSummary({
       studentName: student.name,
       examTitle: latestResult?.exam.title || "Periodic Benchmark Assessment",
