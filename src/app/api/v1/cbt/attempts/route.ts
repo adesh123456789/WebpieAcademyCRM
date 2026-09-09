@@ -122,7 +122,7 @@ export async function PUT(req: NextRequest) {
           rollNumber: "ONLINE",
           responses: responses || {},
         },
-      ]);
+      ], { multipleCorrectPolicy: JSON.parse(attempt.exam.markingRules || "{}").multipleCorrectPolicy });
 
       const evalRes = finalEval[0];
 

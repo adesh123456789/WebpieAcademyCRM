@@ -90,7 +90,10 @@ export async function POST(
     }
 
     // Run Deterministic Evaluation
-    const evaluatedResults = DeterministicEvaluationEngine.evaluateCohort(examQuestions, attempts);
+    const examRules = JSON.parse(job.exam.markingRules || "{}");
+    const evaluatedResults = DeterministicEvaluationEngine.evaluateCohort(examQuestions, attempts, {
+      multipleCorrectPolicy: examRules.multipleCorrectPolicy,
+    });
 
     // Save Exam Results & Mastery Evidence
     for (const evalRes of evaluatedResults) {

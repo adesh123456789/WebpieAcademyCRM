@@ -148,4 +148,12 @@ describe("Deterministic Evaluation Engine (PRD Section 27)", () => {
 
     expect(JSON.stringify(run1)).toBe(JSON.stringify(run2));
   });
+
+  it("EVAL-004: applies an explicit multiple-correct profile matrix", () => {
+    const q = { ...testQuestions[3], multipleCorrectPolicy: { partialMarks: 2, wrongMarks: -3 } };
+    expect(DeterministicEvaluationEngine.gradeResponse(q, ["A"]).marksAwarded).toBe(2);
+    expect(DeterministicEvaluationEngine.gradeResponse(q, ["A", "B"]).marksAwarded).toBe(-3);
+    const run = DeterministicEvaluationEngine.evaluateCohort([q], [{ studentId: "s", rollNumber: "r", responses: { Q4: ["A"] } }]);
+    expect(run[0].totalMarks).toBe(2);
+  });
 });

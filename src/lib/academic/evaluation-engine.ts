@@ -9,6 +9,8 @@ export interface ExamQuestionConfig {
   numericalTolerance?: number;
   marksCorrect: number;
   marksIncorrect: number;
+  /** Optional profile-specific multiple-correct matrix. */
+  multipleCorrectPolicy?: { partialMarks: number; wrongMarks: number };
 }
 
 export interface StudentAttemptInput {
@@ -54,7 +56,8 @@ export class DeterministicEvaluationEngine {
    */
   public static gradeResponse(
     q: ExamQuestionConfig,
-    userAnswer: any
+    userAnswer: any,
+    policy = q.multipleCorrectPolicy,
   ): { status: QuestionGradingDetail["status"]; marksAwarded: number } {
     // Check if unattempted
     if (
@@ -95,7 +98,7 @@ export class DeterministicEvaluationEngine {
       // Any wrong choice selected yields negative marks
       const hasWrong = userArr.some((ans) => !correctArr.includes(ans));
       if (hasWrong) {
-        return { status: "INCORRECT", marksAwarded: q.marksIncorrect };
+        return { status: "INCORRECT", marksAwarded: policy?.wrongMarks ?? q.marksIncorrect };
       }
 
       // If exactly matches all correct answers
@@ -106,7 +109,7 @@ export class DeterministicEvaluationEngine {
 
       // Partial marking: +1 mark per correct option if no incorrect option was chosen
       if (userArr.length > 0) {
-        const partialMarks = Math.min(userArr.length, q.marksCorrect - 1);
+        const partialMarks = policy?.partialMarks ?? Math.min(userArr.length, q.marksCorrect - 1);
         return { status: "PARTIALLY_CORRECT", marksAwarded: partialMarks };
       }
     }
@@ -119,7 +122,8 @@ export class DeterministicEvaluationEngine {
    */
   public static evaluateCohort(
     questions: ExamQuestionConfig[],
-    attempts: StudentAttemptInput[]
+    attempts: StudentAttemptInput[],
+    options?: { multipleCorrectPolicy?: { partialMarks: number; wrongMarks: number } },
   ): StudentEvaluationResult[] {
     const maximumMarks = questions.reduce((acc, q) => acc + q.marksCorrect, 0);
 
@@ -141,7 +145,7 @@ export class DeterministicEvaluationEngine {
         subjectScores[q.subject].max += q.marksCorrect;
 
         const userAns = attempt.responses[q.questionId];
-        const { status, marksAwarded } = this.gradeResponse(q, userAns);
+        const { status, marksAwarded } = this.gradeResponse(q, userAns, options?.multipleCorrectPolicy ?? q.multipleCorrectPolicy);
 
         if (status === "CORRECT") {
           totalCorrect++;
