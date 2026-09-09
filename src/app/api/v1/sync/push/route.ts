@@ -10,7 +10,10 @@ export async function POST(req: NextRequest) {
   try {
     const events = parsePushBatch(await req.json());
     const result = await applyPushEvents({ nodeId: node.id, tenantId: node.tenantId, branchId: node.branchId }, events.events, domainAppliers);
-    for (const item of result.results) if (item.status === "CONFLICT") metric("syncConflict", 1, { eventId: item.eventId });
+    for (const item of result.results) {
+      if (item.status === "CONFLICT") metric("syncConflict", 1, { eventId: item.eventId });
+      if (item.status === "REJECTED") metric("syncEventFailed", 1, { eventId: item.eventId });
+    }
     return NextResponse.json(result);
   } catch (error: any) {
     metric("syncEventFailed", 1, { nodeId: node.id });
