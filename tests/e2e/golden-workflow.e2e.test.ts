@@ -17,6 +17,7 @@ import { GET as masteryGet } from "../../src/app/api/v1/mastery/students/[studen
 import { POST as interventionsPost } from "../../src/app/api/v1/interventions/route";
 import { GET as interventionGet } from "../../src/app/api/v1/interventions/[id]/route";
 import { POST as retestPost } from "../../src/app/api/v1/interventions/[id]/retest/route";
+import { POST as reviseAnswerKeyPost } from "../../src/app/api/v1/exams/[id]/answer-key/revise/route";
 import { POST as reportPublishPost } from "../../src/app/api/v1/reports/[id]/publish/route";
 import { POST as reportSharePost } from "../../src/app/api/v1/reports/[id]/share/route";
 import { GET as reportShareGet } from "../../src/app/api/v1/reports/share/[token]/route";
@@ -319,8 +320,24 @@ describe("Golden loop / Stage 4 - evaluation & results", () => {
     expect(JSON.stringify(res.body)).not.toContain(world.b.exam.title);
   });
 
-  it.todo("S8a: deterministic scoring, negative marking, cohort rank/percentile snapshot, reproducible re-run - blocked on EVAL-001");
-  it.todo("S8b: answer-key correction creates an audited result revision - blocked on EVAL-001");
+  it("S8a: deterministic scoring, negative marking, cohort rank/percentile snapshot, reproducible re-run", async () => {
+    const first = await call(resultsGet, `/api/v1/results/exams/${world.a.exam.id}`, { token: teacherToken, params: { id: world.a.exam.id } });
+    const second = await call(resultsGet, `/api/v1/results/exams/${world.a.exam.id}`, { token: teacherToken, params: { id: world.a.exam.id } });
+    expect(first.status).toBe(200);
+    expect(second.body).toEqual(first.body);
+    expect(first.body.leaderboard.length).toBe(2);
+    expect(first.body.leaderboard.map((r: any) => r.rank)).toEqual([1, 2]);
+    expect(first.body.leaderboard.every((r: any) => r.percentile >= 0 && r.percentile <= 100)).toBe(true);
+  });
+  it("S8b: answer-key correction creates an audited result revision", async () => {
+    const before = await prisma.examResult.count({ where: { examId: world.a.exam.id } });
+    const revised = await call(reviseAnswerKeyPost, `/api/v1/exams/${world.a.exam.id}/answer-key/revise`, { token: teacherToken, params: { id: world.a.exam.id }, body: { questionId: world.a.question.id, correctAnswer: "B", reason: "Verified answer-key correction" } });
+    expect(revised.status).toBe(200);
+    expect(revised.body.revisedResults).toBe(2);
+    expect(await prisma.examResult.count({ where: { examId: world.a.exam.id } })).toBe(before + 2);
+    expect(await prisma.examResultRevision.count({ where: { examId: world.a.exam.id, reason: "Verified answer-key correction" } })).toBe(2);
+    expect(await prisma.auditLog.count({ where: { entityId: world.a.exam.id, action: "ANSWER_KEY_REVISED" } })).toBe(1);
+  });
 });
 
 describe("Golden loop / Stage 5 - mastery & intervention", () => {
