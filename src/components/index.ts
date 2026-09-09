@@ -13,5 +13,6 @@ export * from "./modals/PairNodeModal";
 export * from "./modals/StudentImportModal";
 export * from "./modals/StudentParentLinkModal";
 export * from "./modals/ExamWizardModal";
+export * from "./modals/UploadOmrBatchModal";
 export * from "./auth/LoginView";
 export * from "./views";

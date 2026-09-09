@@ -63,6 +63,7 @@ import {
   StudentImportModal,
   StudentParentLinkModal,
   ExamWizardModal,
+  UploadOmrBatchModal,
   LoginView,
   AuthenticatedUser,
   SuperAdminView,
@@ -108,7 +109,16 @@ export default function WebPieAcademicOS() {
 
   const [omrJobs, setOmrJobs] = useState<any[]>([]);
   const [selectedOmrJob, setSelectedOmrJob] = useState<any>(null);
-  const [overrideModal, setOverrideModal] = useState<{ scanId: string; qNum: number; detected: string } | null>(null);
+  const [isUploadBatchModalOpen, setIsUploadBatchModalOpen] = useState<boolean>(false);
+  const [overrideModal, setOverrideModal] = useState<{
+    scanId: string;
+    qNum: number;
+    detected: string;
+    reason?: string;
+    cropUrl?: string;
+    expectedVersion?: number;
+    studentRoll?: string;
+  } | null>(null);
   const [overrideChoice, setOverrideChoice] = useState<string>("A");
 
   const [interventions, setInterventions] = useState<any[]>([]);
@@ -602,7 +612,7 @@ export default function WebPieAcademicOS() {
     }
   }
 
-  async function handleOverrideSubmit() {
+  async function handleOverrideSubmit(reason?: string, expectedVersion?: number) {
     if (!overrideModal) return;
     try {
       const res = await fetch(`/api/v1/omr/responses/${overrideModal.scanId}/override`, {
@@ -611,16 +621,20 @@ export default function WebPieAcademicOS() {
         body: JSON.stringify({
           questionNumber: overrideModal.qNum,
           newResponse: overrideChoice,
-          reason: "Teacher verified visual ink density on physical sheet",
+          reason: reason || "Teacher verified visual ink density on physical sheet",
+          expectedVersion: expectedVersion || overrideModal.expectedVersion || 1,
         }),
       });
       if (res.ok) {
-        showToast(`Override saved to immutable audit trail! Question ${overrideModal.qNum} set to (${overrideChoice}).`);
+        showToast(`Override saved to immutable audit trail! Question #${overrideModal.qNum} set to (${overrideChoice}).`);
         setOverrideModal(null);
         loadOmrJobs();
+      } else {
+        const errData = await res.json();
+        showToast(`Override rejected: ${errData.error || "Server validation failed"}`);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      showToast(`Error: ${e.message}`);
     }
   }
 
@@ -628,15 +642,22 @@ export default function WebPieAcademicOS() {
     try {
       const res = await fetch(`/api/v1/omr/jobs/${jobId}/finalize`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idempotencyKey: `fin-omr-${jobId}-${Date.now()}`,
+          expectedVersion: 1,
+        }),
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         showToast(`Deterministic evaluation complete! ${data.evaluatedCount} student ranks and percentiles locked.`);
         loadOmrJobs();
         loadInterventions();
+      } else {
+        showToast(`Finalize blocked: ${data.error || "Contract C04 safety floor active"}`);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      showToast(`Finalize error: ${e.message}`);
     }
   }
 
@@ -1128,7 +1149,9 @@ export default function WebPieAcademicOS() {
           {activeTab === "omr" && (
             <OmrView
               selectedOmrJob={selectedOmrJob}
-              onRunSimulatedOmrScan={runSimulatedOmrScan}
+              omrJobs={omrJobs}
+              onSelectJob={(job) => setSelectedOmrJob(job)}
+              onOpenUploadModal={() => setIsUploadBatchModalOpen(true)}
               onFinalizeOmrJob={finalizeOmrJob}
               onOpenOverrideModal={(data) => setOverrideModal(data)}
             />
@@ -1225,6 +1248,18 @@ export default function WebPieAcademicOS() {
         setOverrideChoice={setOverrideChoice}
         onClose={() => setOverrideModal(null)}
         onSubmit={handleOverrideSubmit}
+      />
+
+      <UploadOmrBatchModal
+        isOpen={isUploadBatchModalOpen}
+        onClose={() => setIsUploadBatchModalOpen(false)}
+        exams={exams}
+        onUploadSuccess={(newJob) => {
+          setOmrJobs((prev) => [newJob, ...prev]);
+          setSelectedOmrJob(newJob);
+          loadOmrJobs();
+        }}
+        showToast={showToast}
       />
 
       <ProvisionAcademyModal
