@@ -28,6 +28,14 @@
   - `toCachedExam()` helper (cloud exam row -> `CachedExam`).
 - `tests/e2e/offline-session.e2e.test.ts` (5) - pull roster -> offline ingest + local eval -> reconnect drains through the real push route (OMRScan rows land), idempotent re-reconnect, cursor advance, disk-PAUSE refuses ingest.
 
+## Update - request signing + encrypted secrets (`f0f5ef1`)
+
+- `src/lib/node/transport.ts` - `signedHeaders(rawBody, token)` (`Authorization: Bearer` + `X-Node-Signature` = HMAC-SHA256 over `ts.body` + `X-Node-Timestamp`, C06 s6) and `makeNodeTransport({ baseUrl, pairingToken, fetchImpl? })` -> a signed `{ push, pull }` the `OfflineSession` consumes. `fetchImpl` injectable.
+- `src/lib/node/secrets.ts` - `NodeSecrets` abstraction: `MemorySecrets` (dev/test), **`EncryptedFileSecrets`** (AES-256-GCM at rest, key = `NODE_ENCRYPTION_KEY`, file mode `0600`), `OsKeychainSecrets` seam (throws - platform adapter TODO). The pairing token never touches plaintext env/logs (SEC-006).
+- `src/lib/sync/node-auth.ts` - `verifyNodeRequest(rawBody, headers, node, { requireSignature })`: bearer-only when no signature headers and not required; otherwise enforces `verifyNodeSignature`. Enable per deployment via `SYNC_REQUIRE_NODE_SIGNATURE=1`.
+- 15 tests (`tests/sync/node-transport.test.ts`, `node-secrets.test.ts`): signature round-trip / tamper / skew, `verifyNodeRequest` modes, transport push/pull with injected fetch, AES round-trip / wrong-key / tamper / token-never-plaintext.
+- **Note:** `f0f5ef1` also swept in uncommitted `src/app/page.tsx` + `CopilotActionPreviewModal.tsx` changes that were staged in the shared checkout by another agent's process - that Copilot-UI work is now committed; no need to re-commit it. tsc + full suite green.
+
 ## Remaining EDGE-001
 
 - Windows process + local API on localhost/LAN, tenant-paired (thin wrapper over `OfflineSession`).
