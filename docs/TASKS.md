@@ -29,9 +29,9 @@ Three lanes: **Codex** (backend/data/schema/API), **Antigravity** (UI), **Claude
 | INT-001 | P1 / L | Codex | BACKLOG | OMR-002 | C05; historical mastery and insufficient-evidence handling, scoped ladders, persisted retest verification; AC-008/009, recompute and no evidence duplication |
 | UI-006 | P1 / L | Antigravity | DONE | UI-003, C05 published | Student/batch results, evidence drill-down, worksheet edit/preview and before/after retest; every label linked to evidence. Handoff docs/handoffs/UI-006-antigravity.md |
 | REP-001 | P1 / M | Codex | BACKLOG | SEC-001, INT-001 | Linked-child portal, published reports, truthful multilingual summaries, expiring/revocable share links and share queue; AC-010 and report data assertions |
-| UI-007 | P1 / M | Antigravity | BACKLOG | UI-002, REP-001 contract | Mobile parent/student portal, child switcher, report download and user-initiated share; inaccessible child never appears |
+| UI-007 | P1 / M | Antigravity | READY | UI-002, REP-001 published | Mobile parent/student portal, child switcher, report download and user-initiated share; inaccessible child never appears |
 | OPS-001 | P1 / L | Codex | BACKLOG | STU-001 | Atomic CRM conversion, finance ledger/idempotency/receipt/reversal and audited attendance/absence tasks; AC-012/017 |
-| UI-008 | P1 / L | Antigravity | BACKLOG | UI-003, OPS-001 contracts | Real CRM follow-up/admission, fees/receipt/reversal and attendance session flows; duplicates and errors visible |
+| UI-008 | P1 / L | Antigravity | READY | UI-003, OPS-001 published | Real CRM follow-up/admission, fees/receipt/reversal and attendance session flows; duplicates and errors visible |
 | CMS-001 | P1 / L | Codex | BACKLOG | SEC-001, FND-002 | Safe section content, publish versions/rollback, verified custom-host mapping and public result selection; AC-016/privacy checks |
 | UI-009 | P1 / M | Antigravity | BACKLOG | UI-001, CMS-001 contract | Section editor/preview/publish/rollback/domain status, responsive public presentation |
 | CBT-001 | P1 / L | Codex | BACKLOG | SEC-001, EVAL-001 | Eligibility/server clock/autosave/reconnect/idempotent submit into common results, tenant flag; AC-011 and duplicate submission |
