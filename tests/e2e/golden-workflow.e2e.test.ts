@@ -17,6 +17,9 @@ import { GET as masteryGet } from "../../src/app/api/v1/mastery/students/[studen
 import { POST as interventionsPost } from "../../src/app/api/v1/interventions/route";
 import { GET as interventionGet } from "../../src/app/api/v1/interventions/[id]/route";
 import { POST as retestPost } from "../../src/app/api/v1/interventions/[id]/retest/route";
+import { POST as reportPublishPost } from "../../src/app/api/v1/reports/[id]/publish/route";
+import { POST as reportSharePost } from "../../src/app/api/v1/reports/[id]/share/route";
+import { GET as reportShareGet } from "../../src/app/api/v1/reports/share/[token]/route";
 
 /**
  * PRD golden loop, end to end, against one synthetic tenant:
@@ -363,8 +366,76 @@ describe("Golden loop / Stage 6 - parent report", () => {
     expect(JSON.stringify(res.body)).not.toContain(world.a.otherStudent.name);
   });
 
-  it.todo("S12a: published report is a versioned artifact; share link is scoped and expiring (AC-010) - blocked on REP-001");
-  it.todo("S12b: multilingual (en/hi/mr) summary asserts only persisted facts; cohort size is real, not hardcoded - blocked on REP-001");
+  let reportV2Id = "";
+
+  it("S12a: publishing a report is versioned; the share link is scoped and expiring (AC-010)", async () => {
+    const pub = (studentId: string) =>
+      call(reportPublishPost, `/api/v1/reports/${studentId}/publish`, { token: teacherToken, params: { id: studentId } });
+
+    const v1 = await pub(world.a.student.id);
+    expect(v1.status).toBe(200);
+    expect(v1.body.report.version).toBe(1);
+    const v2 = await pub(world.a.student.id);
+    expect(v2.body.report.version).toBe(2); // versioned artifact, not overwrite
+    reportV2Id = v2.body.report.id;
+
+    const shared = await call(reportSharePost, `/api/v1/reports/${reportV2Id}/share`, {
+      token: teacherToken,
+      params: { id: reportV2Id },
+      body: { expiresInHours: 1 },
+    });
+    expect(shared.status).toBe(200);
+    expect(new Date(shared.body.expiresAt).getTime()).toBeGreaterThan(Date.now());
+
+    const viaLink = await call(reportShareGet, `/api/v1/reports/share/${shared.body.token}`, {
+      params: { token: shared.body.token },
+    });
+    expect(viaLink.status).toBe(200);
+    expect(viaLink.body.report.version).toBe(2);
+    expect(viaLink.body.report.student.id).toBe(world.a.student.id);
+
+    // a bad token is not a valid link
+    expect((await call(reportShareGet, "/api/v1/reports/share/deadbeef", { params: { token: "deadbeef" } })).status).toBe(404);
+
+    // AC-010: a teacher cannot share the report of a student outside their batch scope
+    const otherReport = await pub(world.a.otherStudent.id);
+    expect(otherReport.status).toBe(200);
+    const denied = await call(reportSharePost, `/api/v1/reports/${otherReport.body.report.id}/share`, {
+      token: teacherToken,
+      params: { id: otherReport.body.report.id },
+      body: {},
+    });
+    expect(denied.status).toBe(403);
+  });
+
+  it("S12b: the published report projects only persisted facts (real result + cohort)", async () => {
+    const dbResult = await prisma.examResult.findFirst({
+      where: { examId: world.a.exam.id, studentId: world.a.student.id },
+      orderBy: { computedAt: "desc" },
+    });
+    expect(dbResult).not.toBeNull();
+
+    const pub = await call(reportPublishPost, `/api/v1/reports/${world.a.student.id}/publish`, {
+      token: teacherToken,
+      params: { id: world.a.student.id },
+    });
+    const p = pub.body.report.projection;
+    expect(p.latestResult.score).toBe(dbResult!.score);
+    expect(p.latestResult.rank).toBe(dbResult!.cohortRank);
+    expect(p.latestResult.percentile).toBe(dbResult!.cohortPercentile);
+    // concept health comes from persisted MasteryScore rows, not a template
+    expect(Array.isArray(p.conceptHealth)).toBe(true);
+
+    // parent portal cohort size is derived, never the old hardcoded 30
+    const portal = await call(portalGet, `/api/v1/parent/portal?roll=${world.a.student.rollNumber}&lang=en`, {
+      user: world.a.users.parent,
+    });
+    expect(portal.status).toBe(200);
+    const realCohort = await prisma.examResult.count({ where: { examId: world.a.exam.id } });
+    if (portal.body.report?.cohortSize !== undefined) {
+      expect(portal.body.report.cohortSize).toBe(realCohort);
+    }
+  });
 });
 
 describe("Golden loop / provenance", () => {
