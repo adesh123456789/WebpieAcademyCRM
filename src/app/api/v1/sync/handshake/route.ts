@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AcademicNodeSyncService } from "@/lib/sync/sync-service";
 import { prisma } from "@/lib/prisma";
+import { rotateNodeToken } from "@/lib/sync/handshake";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const refreshToken = body.currentToken || (req.headers.get("authorization")?.startsWith("Bearer node_") ? req.headers.get("authorization")!.slice(7) : null);
+    if (refreshToken) {
+      const rotated = await rotateNodeToken(refreshToken);
+      if (!rotated.ok) return NextResponse.json({ error: `Node token ${rotated.reason.toLowerCase()}` }, { status: rotated.reason === "REVOKED" ? 403 : 401 });
+      return NextResponse.json(rotated);
+    }
     const { tenantCode, branchCode, nodeCode, name, machineFingerprint, ipAddress, osVersion } = body;
 
     if (!tenantCode || !nodeCode || !machineFingerprint) {

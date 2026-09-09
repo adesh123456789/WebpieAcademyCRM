@@ -8,7 +8,8 @@ const idVersion = (stored: number | null, incoming: number) => Math.max(stored ?
 export const domainAppliers: DomainApplierMap = {
   OMR_SCAN: async (tx: any, _ctx, event, stored) => {
     const p = record(event.payload);
-    await tx.oMRScan.update({ where: { id: event.entityId }, data: { detectedResponses: JSON.stringify(p.detectedResponses ?? {}), verifiedResponses: p.verifiedResponses ? JSON.stringify(p.verifiedResponses) : undefined, status: p.status ?? "PROCESSING", confidenceScore: Number(p.confidenceScore ?? 0) } });
+    const data = { detectedResponses: JSON.stringify(p.detectedResponses ?? {}), verifiedResponses: p.verifiedResponses ? JSON.stringify(p.verifiedResponses) : undefined, status: p.status ?? "PROCESSING", confidenceScore: Number(p.confidenceScore ?? 0) };
+    await tx.oMRScan.upsert({ where: { id: event.entityId }, create: { id: event.entityId, jobId: p.jobId, studentId: p.studentId ?? null, detectedRollNumber: p.detectedRollNumber ?? null, ...data }, update: data });
     return { appliedVersion: idVersion(stored, event.entityVersion) };
   },
   EXAM_RESULT: async (tx: any, ctx, event, stored) => {
