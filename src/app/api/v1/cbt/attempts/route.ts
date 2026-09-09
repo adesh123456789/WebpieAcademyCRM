@@ -3,6 +3,7 @@ import { getSessionContext, getStudentForSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { usePinnedQuestions } from "@/lib/exams/lifecycle";
 import { DeterministicEvaluationEngine, ExamQuestionConfig } from "@/lib/academic/evaluation-engine";
+import { persistEvaluationResult } from "@/lib/academic/result-persistence";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,6 +28,14 @@ export async function POST(req: NextRequest) {
 
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
     if (!["FINALIZED", "CONDUCTED"].includes(exam.status)) return NextResponse.json({ error: "Exam is not finalized" }, { status: 409 });
+    if (!exam.isCbtEnabled) return NextResponse.json({ error: "CBT is not enabled for this exam" }, { status: 409 });
+    const blueprint = JSON.parse(exam.blueprint || "{}");
+    const policy = blueprint.cbtEligibility || blueprint.cbt || {};
+    const now = new Date();
+    if (policy.opensAt && now < new Date(policy.opensAt)) return NextResponse.json({ error: "CBT window has not opened" }, { status: 403 });
+    if (policy.closesAt && now >= new Date(policy.closesAt)) return NextResponse.json({ error: "CBT window has closed" }, { status: 403 });
+    const batchIds = JSON.parse(exam.batchIds || "[]") as string[];
+    if (batchIds.length && !(await prisma.enrollment.findFirst({ where: { studentId, batchId: { in: batchIds }, status: "ACTIVE" } }))) return NextResponse.json({ error: "Student is not eligible for this exam" }, { status: 403 });
     await usePinnedQuestions(exam);
 
     // Look up or create attempt
@@ -39,6 +48,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (!attempt) {
+      const attemptLimit = Math.max(1, Number(policy.attemptLimit) || 1);
+      const previousAttempts = await prisma.cBTAttempt.count({ where: { examId, studentId, status: { in: ["SUBMITTED", "TIMED_OUT"] } } });
+      if (previousAttempts >= attemptLimit) return NextResponse.json({ error: "CBT attempt limit reached" }, { status: 409 });
       attempt = await prisma.cBTAttempt.create({
         data: {
           tenantId: session.tenantId,
@@ -67,6 +79,8 @@ export async function POST(req: NextRequest) {
       attemptId: attempt.id,
       durationMinutes: exam.durationMinutes,
       startTime: attempt.startTime,
+      serverTime: new Date(),
+      expiresAt: new Date(attempt.startTime.getTime() + exam.durationMinutes * 60_000),
       responses: JSON.parse(attempt.responses || "{}"),
       markedForReview: JSON.parse(attempt.markedForReview || "[]"),
       questions: sanitizedQuestions,
@@ -100,6 +114,11 @@ export async function PUT(req: NextRequest) {
 
     if (!attempt) return NextResponse.json({ error: "Attempt not found" }, { status: 404 });
     if (attempt.status !== "IN_PROGRESS") return NextResponse.json({ error: "Attempt is no longer active" }, { status: 409 });
+    const expired = Date.now() >= attempt.startTime.getTime() + attempt.exam.durationMinutes * 60_000;
+    if (expired && !isFinalSubmit) {
+      await prisma.cBTAttempt.update({ where: { id: attempt.id }, data: { status: "TIMED_OUT", serverClockTime: new Date() } });
+      return NextResponse.json({ error: "Exam time has expired" }, { status: 409 });
+    }
 
     if (isFinalSubmit) {
       await usePinnedQuestions(attempt.exam);
@@ -116,11 +135,12 @@ export async function PUT(req: NextRequest) {
         marksIncorrect: eq.marksIncorrect,
       }));
 
+      const finalResponses = expired ? JSON.parse(attempt.responses || "{}") : (responses || {});
       const finalEval = DeterministicEvaluationEngine.evaluateCohort(examQuestions, [
         {
           studentId: attempt.studentId,
           rollNumber: "ONLINE",
-          responses: responses || {},
+          responses: finalResponses,
         },
       ], { multipleCorrectPolicy: JSON.parse(attempt.exam.markingRules || "{}").multipleCorrectPolicy });
 
@@ -129,16 +149,23 @@ export async function PUT(req: NextRequest) {
       await prisma.cBTAttempt.update({
         where: { id: attempt.id },
         data: {
-          responses: JSON.stringify(responses || {}),
-          status: "SUBMITTED",
+          responses: JSON.stringify(finalResponses),
+          status: expired ? "TIMED_OUT" : "SUBMITTED",
           submitTime: new Date(),
         },
       });
+
+      const persisted = await persistEvaluationResult({ tenantId: session.tenantId, examId: attempt.examId, result: evalRes });
+      for (const detail of evalRes.questionDetails) {
+        const exists = await prisma.masteryEvidence.findFirst({ where: { tenantId: session.tenantId, examId: attempt.examId, studentId: attempt.studentId, questionId: detail.questionId } });
+        if (!exists) await prisma.masteryEvidence.create({ data: { tenantId: session.tenantId, examId: attempt.examId, studentId: attempt.studentId, questionId: detail.questionId, concept: detail.concept, wasCorrect: detail.status === "CORRECT" } });
+      }
 
       return NextResponse.json({
         success: true,
         submitted: true,
         result: evalRes,
+        resultId: persisted.id,
       });
     }
 
@@ -152,7 +179,7 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, saved: true });
+    return NextResponse.json({ success: true, saved: true, responses: JSON.parse(updated.responses), markedForReview: JSON.parse(updated.markedForReview), serverTime: updated.serverClockTime });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
