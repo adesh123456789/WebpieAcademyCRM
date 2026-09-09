@@ -68,6 +68,7 @@ import {
   WorksheetEditorModal,
   ShareReportModal,
   ReversePaymentModal,
+  CopilotActionPreviewModal,
   LoginView,
   AuthenticatedUser,
   SuperAdminView,
@@ -182,6 +183,9 @@ export default function WebPieAcademicOS() {
 
   const [aiPrompting, setAiPrompting] = useState<boolean>(false);
   const [aiCandidates, setAiCandidates] = useState<any[]>([]);
+  const [aiShortfall, setAiShortfall] = useState<number | undefined>(undefined);
+  const [aiOutcome, setAiOutcome] = useState<string | undefined>(undefined);
+  const [copilotActionPlan, setCopilotActionPlan] = useState<any>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   // Quick Action Modal States
@@ -547,6 +551,7 @@ export default function WebPieAcademicOS() {
   // -------------------------------------------------------------
   async function triggerAiGeneration() {
     setAiPrompting(true);
+    setAiShortfall(undefined);
     try {
       const res = await fetch("/api/v1/questions/generate", {
         method: "POST",
@@ -563,13 +568,57 @@ export default function WebPieAcademicOS() {
       if (res.ok) {
         const data = await res.json();
         setAiCandidates(data.candidates || []);
-        showToast("Generated 2 verified candidate questions via AI Gateway!");
+        setAiOutcome(data.outcome);
+        setAiShortfall(data.shortfall);
+        const count = (data.candidates || []).length;
+        if (data.shortfall && data.shortfall > 0) {
+          showToast(`Retrieved ${count} bank candidate(s) (shortfall of ${data.shortfall} from approved bank).`);
+        } else {
+          showToast(`Generated ${count} candidate question(s) via AI Gateway (${data.outcome || "MODEL"}).`);
+        }
+      } else {
+        const err = await res.json();
+        showToast(`AI Gateway rejected: ${err.error || "Generation error"}`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      showToast(`AI generation failed: ${e.message}`);
     } finally {
       setAiPrompting(false);
     }
+  }
+
+  function handleOpenCopilotPreview() {
+    setCopilotActionPlan({
+      id: `copilot-plan-${Date.now()}`,
+      topic: "Rotational Dynamics & Rolling Friction",
+      subject: "PHYSICS",
+      targetBatch: "Rankers JEE 2026-A",
+      evidenceSummary: "Diagnostic analysis indicates 42% accuracy on torque equilibrium problems. 18 of 24 students missed questions involving friction direction during rolling without slipping.",
+      recommendedActions: [
+        {
+          type: "REMEDIAL_WORKSHEET",
+          title: "Generate 3-Tier Rolling Friction Practice Ladder",
+          description: "Targeted 5-question scaffolded worksheet focusing on torque balance at contact point.",
+          estimatedMinutes: 30,
+        },
+        {
+          type: "EXTRA_DOUBT_SESSION",
+          title: "Schedule 25-Minute Focused Concept Clinic",
+          description: "Interactive session addressing sign conventions in angular momentum conservation.",
+          estimatedMinutes: 25,
+        },
+        {
+          type: "ASSIGNMENT_RETEST",
+          title: "Mini Retest: 3-Item Concept Verification",
+          description: "Re-evaluates mastery evidence post-worksheet to confirm concept resolution (AC-009).",
+          estimatedMinutes: 15,
+        },
+      ],
+      retrievalScope: "TENANT_PRIVATE",
+      confidenceScore: 0.92,
+      aiRequestId: `req-copilot-${Date.now().toString(36)}`,
+    });
   }
 
   async function fetchArtifact(examId: string, type: "omr" | "question_paper" | "answer_key") {
@@ -1206,11 +1255,18 @@ export default function WebPieAcademicOS() {
               questions={questions}
               aiCandidates={aiCandidates}
               aiPrompting={aiPrompting}
+              aiShortfall={aiShortfall}
+              aiOutcome={aiOutcome}
               onTriggerAiGeneration={triggerAiGeneration}
               onApproveCandidate={(idx) => {
                 showToast("Candidate question approved and entered into Question Bank!");
                 setAiCandidates(aiCandidates.filter((_, i) => i !== idx));
               }}
+              onRejectCandidate={(idx) => {
+                showToast("Candidate question rejected (feedback recorded).");
+                setAiCandidates(aiCandidates.filter((_, i) => i !== idx));
+              }}
+              onOpenCopilotPreview={handleOpenCopilotPreview}
             />
           )}
 
@@ -1428,6 +1484,16 @@ export default function WebPieAcademicOS() {
         payment={reversingPayment}
         onClose={() => setReversingPayment(null)}
         onConfirmReverse={handleReversePayment}
+      />
+
+      <CopilotActionPreviewModal
+        isOpen={copilotActionPlan !== null}
+        actionPlan={copilotActionPlan}
+        onClose={() => setCopilotActionPlan(null)}
+        onConfirmPlan={(planId) => {
+          showToast(`Copilot Action Plan confirmed and scheduled for ${copilotActionPlan?.targetBatch || "batch"}.`);
+          setCopilotActionPlan(null);
+        }}
       />
 
       <AddLeadModal

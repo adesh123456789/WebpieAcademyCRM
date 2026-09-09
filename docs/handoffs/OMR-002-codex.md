@@ -1,6 +1,8 @@
 # OMR-002 Codex Handoff
 
-Status: IN_PROGRESS — finalize safety floor tightened.
+Status: IN_PROGRESS — finalize safety floor and review revisions landed.
+
+Commit `775d937` adds an `OMRScan.version` revision column in both Prisma schema mirrors and migration `0008_omr_scan_revision`. The override route now rejects finalized jobs, enforces `expectedVersion` when supplied, atomically increments the scan revision, and returns `409` on stale concurrent edits.
 
 Commit `e90b4b4` updates the real OMR finalize handler so it returns `409` whenever:
 

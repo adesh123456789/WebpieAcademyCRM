@@ -18,5 +18,6 @@ export * from "./modals/StudentResultDrilldownModal";
 export * from "./modals/WorksheetEditorModal";
 export * from "./modals/ShareReportModal";
 export * from "./modals/ReversePaymentModal";
+export * from "./modals/CopilotActionPreviewModal";
 export * from "./auth/LoginView";
 export * from "./views";
