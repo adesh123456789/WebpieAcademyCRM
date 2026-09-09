@@ -1,6 +1,6 @@
 # OMR-002 Codex Handoff
 
-Status: IN_PROGRESS — finalize safety floor and review revisions landed.
+Status: READY / COMPLETE — finalize safety floor and review revisions landed.
 
 Commit `775d937` adds an `OMRScan.version` revision column in both Prisma schema mirrors and migration `0008_omr_scan_revision`. The override route now rejects finalized jobs, enforces `expectedVersion` when supplied, atomically increments the scan revision, and returns `409` on stale concurrent edits.
 
@@ -14,4 +14,4 @@ This prevents partially ingested offline batches from finalizing as confident re
 
 Validation: OMR unit + offline route E2E (8 tests passed); `npx tsc --noEmit` passed.
 
-Remaining OMR-002 integration work is a full S7 route assertion covering review override, blocked finalize, and same-key replay with exactly one logical result set.
+The S7 assertion is live in `tests/e2e/golden-workflow.e2e.test.ts` (commit `db37941`). The override route transitions a `REVIEW_REQUIRED` job to `READY` when all scans are terminal, allowing finalize, same-key replay, different-key conflict, and post-finalize override rejection. Golden workflow: 21 passed, 9 remaining todos.
