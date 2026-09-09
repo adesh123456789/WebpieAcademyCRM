@@ -55,7 +55,13 @@ describe("Golden loop / Stage 1 - identity & scope", () => {
     for (const s of res.body.students) expect(s.tenantId ?? world.a.tenant.id).toBe(world.a.tenant.id);
   });
 
-  it.todo("S2a: teacher sees ONLY assigned-batch students - blocked on STU-001 (batch assignment enforcement)");
+  it("S2a: teacher sees ONLY assigned-batch students", async () => {
+    const res = await call(studentsGet, "/api/v1/students", { token: teacherToken });
+    expect(res.status).toBe(200);
+    expect(res.body.students.map((student: any) => student.id)).toEqual([world.a.student.id]);
+    expect(res.body.students.some((student: any) => student.id === world.a.sibling.id)).toBe(false);
+    expect(res.body.students.some((student: any) => student.id === world.a.otherStudent.id)).toBe(false);
+  });
 });
 
 describe("Golden loop / Stage 2 - exam builder & artifacts", () => {

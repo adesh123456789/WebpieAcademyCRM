@@ -16,12 +16,21 @@ export async function GET(req: NextRequest) {
     const branchId = session.role === "OWNER" || session.role === "WEBPIE_ADMIN" ? (requestedBranchId || undefined) : session.branchId || undefined;
     const search = searchParams.get("search") || "";
     const targetExam = searchParams.get("targetExam") || undefined;
+    let teacherBatchIds: string[] | null = null;
+    if (session.role === "TEACHER") {
+      try {
+        const parsed = JSON.parse(session.scopes || "{}");
+        teacherBatchIds = Array.isArray(parsed.batchIds) ? parsed.batchIds.filter((id: unknown) => typeof id === "string") : [];
+      } catch {
+        teacherBatchIds = [];
+      }
+    }
 
     const students = await prisma.student.findMany({
       where: {
         tenantId: session.tenantId,
         ...(branchId ? { branchId } : {}),
-        ...(session.role === "TEACHER" && session.scopes ? { enrollments: { some: { batchId: { in: JSON.parse(session.scopes).batchIds || [] } } } } : {}),
+        ...(teacherBatchIds ? { enrollments: { some: { batchId: { in: teacherBatchIds }, status: "ACTIVE" } } } : {}),
         ...(targetExam ? { targetExam } : {}),
         ...(search
           ? {
