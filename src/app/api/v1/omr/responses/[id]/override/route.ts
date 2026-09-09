@@ -53,6 +53,19 @@ export async function POST(
     if (updatedCount.count !== 1) return NextResponse.json({ error: "Scan revision is stale" }, { status: 409 });
     const updated = await prisma.oMRScan.findUniqueOrThrow({ where: { id: scan.id } });
 
+    // Once every sheet is terminal, clear the job-level review gate so the
+    // retry-safe finalize route can proceed. Keep the transition scoped to the
+    // current job and leave processing/rejected sheets blocked until resolved.
+    const remainingReview = await prisma.oMRScan.count({
+      where: {
+        jobId: scan.jobId,
+        status: { notIn: ["CONFIDENT", "OVERRIDDEN"] },
+      },
+    });
+    if (remainingReview === 0 && scan.job.status === "REVIEW_REQUIRED") {
+      await prisma.oMRJob.update({ where: { id: scan.jobId }, data: { status: "READY" } });
+    }
+
     // Write audit log (PRD OMR-004)
     await createAuditLog({
       tenantId: session.tenantId,

@@ -259,11 +259,39 @@ describe("Golden loop / Stage 3 - OMR capture & review", () => {
     expect(res.status).toBe(400);
   });
 
-  it.todo(
-    "S7: finalize succeeds once every flagged scan is resolved; same key replays to one result set, a different key 409s; a finalized job rejects overrides " +
-      "- BLOCKED: the OMR job stays status=REVIEW_REQUIRED after all its scans are overridden, and the finalize route also gates on job.status, so finalize " +
-      "permanently 409s. The override route (or a resolve step) must transition the job out of REVIEW_REQUIRED when no flagged scans remain. Flagged to Codex.",
-  );
+  it("S7: finalize succeeds once every flagged scan is resolved; same key replays to one result set, a different key 409s; a finalized job rejects overrides", async () => {
+    const finalized = await call(omrFinalizePost, `/api/v1/omr/jobs/${omrJobId}/finalize`, {
+      token: teacherToken,
+      params: { id: omrJobId },
+      body: { idempotencyKey: "omr-final-1" },
+    });
+    expect(finalized.status).toBe(200);
+    expect(finalized.body.evaluatedCount).toBe(2);
+    expect(await prisma.examResult.count({ where: { examId: world.a.exam.id } })).toBe(2);
+
+    const replay = await call(omrFinalizePost, `/api/v1/omr/jobs/${omrJobId}/finalize`, {
+      token: teacherToken,
+      params: { id: omrJobId },
+      body: { idempotencyKey: "omr-final-1" },
+    });
+    expect(replay.status).toBe(200);
+    expect(replay.body.replay).toBe(true);
+    expect(await prisma.examResult.count({ where: { examId: world.a.exam.id } })).toBe(2);
+
+    const differentKey = await call(omrFinalizePost, `/api/v1/omr/jobs/${omrJobId}/finalize`, {
+      token: teacherToken,
+      params: { id: omrJobId },
+      body: { idempotencyKey: "omr-final-different" },
+    });
+    expect(differentKey.status).toBe(409);
+
+    const overrideAfterFinalize = await call(omrOverridePost, `/api/v1/omr/responses/${ambiguousScanId}/override`, {
+      token: teacherToken,
+      params: { id: ambiguousScanId },
+      body: { questionNumber: 1, newResponse: "B", reason: "late correction" },
+    });
+    expect(overrideAfterFinalize.status).toBe(409);
+  });
 });
 
 describe("Golden loop / Stage 4 - evaluation & results", () => {
