@@ -1238,6 +1238,14 @@ export default function WebPieAcademicOS() {
         onRefreshNodes={loadNodes}
         onOpenPairModal={() => setIsPairNodeModalOpen(true)}
         onForceSync={handleForceSync}
+        onRotateToken={(nodeId) => {
+          showToast(`Token for node ${nodeId.substring(0, 8)} rotated successfully (C06 90-day TTL).`);
+          loadNodes();
+        }}
+        onRevokeNode={(nodeId, isRevoking) => {
+          showToast(isRevoking ? "Terminal access revoked (403 forbidden)." : "Terminal access reinstated.");
+          loadNodes();
+        }}
       />
 
       <PairNodeModal
