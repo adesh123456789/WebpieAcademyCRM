@@ -13,6 +13,10 @@ import { POST as omrOverridePost } from "../../src/app/api/v1/omr/responses/[id]
 import { POST as omrFinalizePost } from "../../src/app/api/v1/omr/jobs/[id]/finalize/route";
 import { GET as resultsGet } from "../../src/app/api/v1/results/exams/[id]/route";
 import { GET as portalGet } from "../../src/app/api/v1/parent/portal/route";
+import { GET as masteryGet } from "../../src/app/api/v1/mastery/students/[studentId]/route";
+import { POST as interventionsPost } from "../../src/app/api/v1/interventions/route";
+import { GET as interventionGet } from "../../src/app/api/v1/interventions/[id]/route";
+import { POST as retestPost } from "../../src/app/api/v1/interventions/[id]/retest/route";
 
 /**
  * PRD golden loop, end to end, against one synthetic tenant:
@@ -317,9 +321,29 @@ describe("Golden loop / Stage 4 - evaluation & results", () => {
 });
 
 describe("Golden loop / Stage 5 - mastery & intervention", () => {
-  it.todo("S9: ResultComputed -> MasteryEvidence -> weakness detection with insufficient-evidence handling - blocked on INT-001");
-  it.todo("S10: intervention creates a 3-tier practice ladder and a printable remedial worksheet - blocked on INT-001");
-  it.todo("S11: mini re-test recomputes mastery; intervention stays unverified until retest evidence exists (AC-009) - blocked on INT-001");
+  let interventionId = "";
+  it("S9: ResultComputed -> MasteryEvidence -> weakness detection with insufficient-evidence handling", async () => {
+    const res = await call(masteryGet, `/api/v1/mastery/students/${world.a.student.id}`, { token: teacherToken, params: { studentId: world.a.student.id } });
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.concepts)).toBe(true);
+    for (const concept of res.body.concepts) if (concept.insufficientEvidence) expect(concept.state).not.toBe("MASTERED");
+  });
+  it("S10: intervention creates a 3-tier practice ladder and a printable remedial worksheet", async () => {
+    const created = await call(interventionsPost, "/api/v1/interventions", { token: teacherToken, body: { concept: world.a.question.concept, studentIds: [world.a.student.id], priority: "HIGH" } });
+    expect(created.status).toBe(200);
+    interventionId = created.body.intervention.id;
+    const detail = await call(interventionGet, `/api/v1/interventions/${interventionId}`, { token: teacherToken, params: { id: interventionId } });
+    expect(detail.status).toBe(200);
+    expect(detail.body.status).toBe("UNVERIFIED");
+    expect(detail.body.ladder.length).toBeGreaterThan(0);
+  });
+  it("S11: mini re-test recomputes mastery; intervention stays unverified until retest evidence exists (AC-009)", async () => {
+    const insufficient = await call(retestPost, `/api/v1/interventions/${interventionId}/retest`, { token: teacherToken, params: { id: interventionId }, body: { results: [] } });
+    expect(insufficient.status).toBe(422);
+    const verified = await call(retestPost, `/api/v1/interventions/${interventionId}/retest`, { token: teacherToken, params: { id: interventionId }, body: { results: [{ studentId: world.a.student.id, newScore: 85 }] } });
+    expect(verified.status).toBe(200);
+    expect(verified.body.intervention.status).toBe("VERIFIED");
+  });
 });
 
 describe("Golden loop / Stage 6 - parent report", () => {

@@ -97,7 +97,7 @@ export class InterventionService {
         concept: params.concept,
         studentIds: JSON.stringify(params.studentIds),
         priority: params.priority || "HIGH",
-        status: "ASSIGNED",
+        status: "UNVERIFIED",
         practiceLadder: JSON.stringify(practiceLadder),
         createdById: params.createdById,
       },
@@ -117,6 +117,11 @@ export class InterventionService {
 
     if (!intervention) throw new Error("Intervention not found");
 
+    const targetStudents = JSON.parse(intervention.studentIds || "[]") as string[];
+    if (!Array.isArray(retestResults) || retestResults.length === 0 || retestResults.length < targetStudents.length) {
+      throw new Error("Sufficient retest evidence is required for every intervention student");
+    }
+
     const avgNewScore =
       retestResults.reduce((acc, r) => acc + r.newScore, 0) / (retestResults.length || 1);
 
@@ -125,7 +130,7 @@ export class InterventionService {
     return prisma.intervention.update({
       where: { id: interventionId },
       data: {
-        status: isResolved ? "RESOLVED" : "IN_PROGRESS",
+        status: isResolved ? "VERIFIED" : "IN_PROGRESS",
         afterMasteryAvg: Math.round(avgNewScore * 10) / 10,
         resolvedAt: isResolved ? new Date() : null,
       },
