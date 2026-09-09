@@ -19,7 +19,11 @@ export async function GET(req: NextRequest) {
     });
 
     // Detect new concept weakness triage queue
-    const detectedQueue = await InterventionService.detectWeaknessQueue(session.tenantId);
+    const url = new URL(req.url);
+    const detectedQueue = await InterventionService.detectWeaknessQueue(session.tenantId, {
+      branchId: session.branchId,
+      batchId: url.searchParams.get("batchId") || undefined,
+    });
 
     return NextResponse.json({
       interventions: activeInterventions.map((i) => ({

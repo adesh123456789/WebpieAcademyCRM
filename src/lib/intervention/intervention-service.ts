@@ -14,11 +14,15 @@ export class InterventionService {
   /**
    * Scans exam results or mastery scores to identify students struggling with concepts
    */
-  public static async detectWeaknessQueue(tenantId: string) {
+  public static async detectWeaknessQueue(tenantId: string, scope: { branchId?: string | null; batchId?: string } = {}) {
     const weakScores = await prisma.masteryScore.findMany({
       where: {
         tenantId,
         state: { in: ["CRITICAL", "WEAK"] },
+        student: {
+          ...(scope.branchId ? { branchId: scope.branchId } : {}),
+          ...(scope.batchId ? { enrollments: { some: { batchId: scope.batchId, status: "ACTIVE" } } } : {}),
+        },
       },
       include: {
         student: true,
@@ -77,6 +81,11 @@ export class InterventionService {
     const practiceQuestions = await prisma.question.findMany({
       where: {
         concept: params.concept,
+        status: { in: ["REVIEWED", "VERIFIED"] },
+        OR: [
+          { ownerScope: "PLATFORM", tenantId: null },
+          { ownerScope: "TENANT_PRIVATE", tenantId: params.tenantId },
+        ],
       },
       take: 6,
     });
