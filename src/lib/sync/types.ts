@@ -52,7 +52,8 @@ export interface PushResult {
 
 export interface PullDelta {
   changes: Record<string, unknown[]>;
-  tombstones: { entityType: SyncEntityType; entityId: string; deletedAt: string }[];
+  /** entityType is the pull stream key ("students" | "batches" | ...), not a SyncEntityType. */
+  tombstones: { entityType: string; entityId: string; deletedAt: string }[];
   nextCursor: string;
   hasMore: boolean;
   snapshotBoundary: string;

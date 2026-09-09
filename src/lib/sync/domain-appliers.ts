@@ -23,9 +23,14 @@ export const domainAppliers: DomainApplierMap = {
     }
     return { appliedVersion: idVersion(stored, event.entityVersion) };
   },
-  ATTENDANCE_RECORD: async (tx: any, ctx, event, stored) => {
+  ATTENDANCE_RECORD: async (tx: any, _ctx, event, stored) => {
+    // AttendanceRecord has no tenantId column; scope is via session -> batch -> tenant.
     const p = record(event.payload);
-    await tx.attendanceRecord.upsert({ where: { id: event.entityId }, create: { id: event.entityId, tenantId: ctx.tenantId, studentId: p.studentId, sessionId: p.sessionId, status: p.status ?? "PRESENT" }, update: { status: p.status ?? "PRESENT" } });
+    await tx.attendanceRecord.upsert({
+      where: { id: event.entityId },
+      create: { id: event.entityId, studentId: p.studentId, sessionId: p.sessionId, status: p.status ?? "PRESENT", source: "OFFLINE_NODE" },
+      update: { status: p.status ?? "PRESENT", source: "OFFLINE_NODE" },
+    });
     return { appliedVersion: idVersion(stored, event.entityVersion) };
   },
   ENROLLMENT: async (tx: any, ctx, event, stored) => {

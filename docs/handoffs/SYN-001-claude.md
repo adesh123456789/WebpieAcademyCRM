@@ -15,9 +15,23 @@
 
 **`buildPullDelta(ctx, cursor, limit)`** - tenant + branch scoped delta over `students / batches / exams / curriculum`. Cursor is the signed scope-bound codec; a foreign cursor -> full snapshot. Pagination never advances `nextCursor` past an undelivered row (cursor stores the last delivered `createdAt` + the ids delivered at that instant).
 
-### v1 limitation - needs a Codex schema follow-up
+## Update 2: pull on `updatedAt` + tombstones + handshake CAS + DB applier tests
 
-The pull-stream models (`Student`, `Batch`, `Exam`, `Enrollment`) have **`createdAt` but no `updatedAt`**, and there is no durable change log. So `buildPullDelta` delivers a full snapshot then only **new** rows incrementally. **Edited rows and hard deletes are not tracked** and `tombstones` is always `[]`. C06 A.6's ordered change log is unmet. Please either add `updatedAt @updatedAt` to those models, or a `SyncChange { tenantId, branchId?, entityType, entityId, op, at }` append-only table. Once `updatedAt` exists, soft-deletes (`status = ARCHIVED/WITHDRAWN`) can surface as tombstones with a one-line change here.
+Codex added `updatedAt` to Student/Batch/Exam/Enrollment (migration `0005`) and wired the routes + `domainAppliers` (`e82d9e6`). Follow-ups done:
+
+- **`buildPullDelta` now cursors on `updatedAt`** - an edited row resurfaces after a cursor that already delivered it. `CurriculumNode` (no `updatedAt`, effectively immutable) stays on `createdAt`.
+- **Tombstones**: archived students (`status = ARCHIVED`) and non-active batches surface as `{ entityType: "<stream>", entityId, deletedAt }` instead of a change. `PullDelta.tombstones[].entityType` loosened to the stream key. Genuine hard deletes still need a `SyncChange` append-only log - deferred.
+- **`src/lib/sync/handshake.ts` - `rotateNodeToken(currentToken)`**: requires a valid non-revoked, non-expired (inclusive) credential; atomic compare-and-swap (`updateMany where pairingToken = current AND revokedAt = null`) so concurrent rotations mint exactly one successor (the loser gets `RACE`); audits `ACADEMIC_NODE_TOKEN_ROTATED`. Route calls this; the legacy pairing service is otherwise unchanged.
+- **DB applier tests** (`tests/sync/domain-appliers.test.ts`, 6): ENROLLMENT create->update->idempotent-replay; STUDENT_PROFILE_FIELD allowlist + tenant-scoped `updateMany` (ignores `id`/`tenantId` in payload, no-ops for another tenant's student); ATTENDANCE_RECORD upsert against a real session; OMR_SCAN update of an existing scan; EXAM_RESULT creates one `ExamResultRevision` superseding a final result and never mutates the authoritative row.
+- **Fixed one applier bug**: `ATTENDANCE_RECORD` was passing `tenantId` to `attendanceRecord.create` / `.upsert`, but that model has no `tenantId` column (scope is session -> batch -> tenant) - it would have thrown on every attendance sync. Now creates with `source: "OFFLINE_NODE"` and no `tenantId`.
+
+`tests/sync/**` totals 45 tests (core 19, apply 12, domain-appliers 6, handshake 5, pull-updatedat 3). tsc + 222 tests / 32 todo pass.
+
+### Still Codex
+
+- Route: call `rotateNodeToken` from the handshake refresh endpoint (if not already); emit `syncConflict`/`syncEventFailed` metrics from `sync/push` per `PerEventResult.status`.
+- `OMR_SCAN` applier is `update`-only - a scan produced offline that does not yet exist cloud-side will `REJECTED`. Decide the policy (upsert with job linkage, or require the scan row first) - flagged, not changed.
+- Hard-delete tombstones still need a `SyncChange` log for a complete C06 A.6.
 
 ## Landed (`src/lib/sync/**`, + `tests/sync/**` carve-out acked in `0d9cd7f`)
 

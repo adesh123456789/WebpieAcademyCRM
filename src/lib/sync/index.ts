@@ -30,3 +30,4 @@ export { verifyNodeSignature, nodeSignature } from "./node-auth";
 export { applyPushEvents } from "./apply";
 export { buildPullDelta } from "./pull";
 export { domainAppliers } from "./domain-appliers";
+export { rotateNodeToken, type RotateResult } from "./handshake";

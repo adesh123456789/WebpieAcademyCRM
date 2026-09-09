@@ -6,41 +6,42 @@ import type { NodeContext, PullDelta } from "./types";
  * SYN-001 / C06 s4 - cloud -> node delta, scoped to the node's tenant and (when
  * set) branch.
  *
- * v1 limitation: the pull-stream models (Student, Batch, Exam, Enrollment) have
- * `createdAt` but no `updatedAt` and there is no durable change log, so this
- * delivers a full snapshot on the first pull and then only NEW rows incrementally
- * (`createdAt` high-water mark). Edited rows and hard deletes are NOT yet tracked
- * - C06 A.6's ordered change log with tombstones is a Codex schema follow-up
- * (add `updatedAt` to the stream models, or a `SyncChange` table). Soft-deletes
- * surface as status changes once `updatedAt` exists.
+ * Cursored on `updatedAt` (added to Student/Batch/Exam/Enrollment in migration
+ * `0005`), so edited rows resurface. `CurriculumNode` has no `updatedAt` and is
+ * effectively immutable, so it is cursored on `createdAt`.
+ *
+ * Tombstones: soft-deletes surface as `{ entityType: <stream>, entityId, deletedAt }`
+ * - archived students, non-active batches, dropped enrollments. Genuine hard
+ * deletes still need a `SyncChange` append-only log (C06 A.6) - not present yet.
  */
 
-const STREAMS = ["students", "batches", "exams", "curriculum"] as const;
-type Stream = (typeof STREAMS)[number];
-
 interface CursorPos {
-  /** ISO createdAt high-water mark; "" = from the beginning (full snapshot) */
-  ts: string;
-  /** ids already delivered whose createdAt === ts, to avoid re-delivery/skip at the boundary */
-  boundaryIds: string[];
+  ts: string; // ISO updatedAt/createdAt high-water mark; "" = full snapshot
+  boundaryIds: string[]; // ids already delivered whose ts === this, to avoid re-delivery/skip
 }
 
 function parsePosition(raw: string | undefined): CursorPos {
   if (!raw) return { ts: "", boundaryIds: [] };
   try {
-    const p = JSON.parse(raw);
+    const p = JSON.parse(raw) as Partial<CursorPos>;
     return { ts: typeof p.ts === "string" ? p.ts : "", boundaryIds: Array.isArray(p.boundaryIds) ? p.boundaryIds : [] };
   } catch {
     return { ts: "", boundaryIds: [] };
   }
 }
 
+type Stream = "students" | "batches" | "exams" | "curriculum";
+
 interface Row {
   stream: Stream;
   id: string;
-  createdAt: Date;
+  changedAt: Date;
   data: Record<string, unknown>;
+  tombstone: boolean;
 }
+
+const STUDENT_DEAD = new Set(["ARCHIVED"]);
+const BATCH_DEAD = (s: string) => s !== "ACTIVE";
 
 export async function buildPullDelta(
   ctx: NodeContext,
@@ -51,61 +52,65 @@ export async function buildPullDelta(
   const decoded = cursorToken ? decodeCursor(cursorToken, ctx) : null;
   const pos = parsePosition(decoded?.position);
   const snapshotBoundary = new Date().toISOString();
+  const boundaryDate = new Date(snapshotBoundary);
   const after = pos.ts ? new Date(pos.ts) : null;
 
-  const branchScope = ctx.branchId ? { branchId: ctx.branchId } : {};
-  const createdFilter = after
-    ? { createdAt: { gte: after, lte: new Date(snapshotBoundary) } }
-    : { createdAt: { lte: new Date(snapshotBoundary) } };
+  const branch = ctx.branchId ? { branchId: ctx.branchId } : {};
+  const updWin = after ? { updatedAt: { gte: after, lte: boundaryDate } } : { updatedAt: { lte: boundaryDate } };
+  const crtWin = after ? { createdAt: { gte: after, lte: boundaryDate } } : { createdAt: { lte: boundaryDate } };
 
   const [students, batches, exams, curriculum] = await Promise.all([
     prisma.student.findMany({
-      where: { tenantId: ctx.tenantId, ...branchScope, ...createdFilter },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      where: { tenantId: ctx.tenantId, ...branch, ...updWin },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
       take: take + 1,
     }),
     prisma.batch.findMany({
-      where: { tenantId: ctx.tenantId, ...branchScope, ...createdFilter },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      where: { tenantId: ctx.tenantId, ...branch, ...updWin },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
       take: take + 1,
     }),
     prisma.exam.findMany({
-      where: { tenantId: ctx.tenantId, ...(ctx.branchId ? { branchId: ctx.branchId } : {}), ...createdFilter },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      where: { tenantId: ctx.tenantId, ...(ctx.branchId ? { branchId: ctx.branchId } : {}), ...updWin },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
       take: take + 1,
     }),
     prisma.curriculumNode.findMany({
-      where: { OR: [{ tenantId: ctx.tenantId }, { tenantId: null }], ...createdFilter },
+      where: { OR: [{ tenantId: ctx.tenantId }, { tenantId: null }], ...crtWin },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: take + 1,
     }),
   ]);
 
   const rows: Row[] = [
-    ...students.map((r) => ({ stream: "students" as Stream, id: r.id, createdAt: r.createdAt, data: r })),
-    ...batches.map((r) => ({ stream: "batches" as Stream, id: r.id, createdAt: r.createdAt, data: r })),
-    ...exams.map((r) => ({ stream: "exams" as Stream, id: r.id, createdAt: r.createdAt, data: r })),
-    ...curriculum.map((r) => ({ stream: "curriculum" as Stream, id: r.id, createdAt: r.createdAt, data: r })),
+    ...students.map((r) => ({ stream: "students" as Stream, id: r.id, changedAt: r.updatedAt, data: r, tombstone: STUDENT_DEAD.has(r.status) })),
+    ...batches.map((r) => ({ stream: "batches" as Stream, id: r.id, changedAt: r.updatedAt, data: r, tombstone: BATCH_DEAD(r.status) })),
+    ...exams.map((r) => ({ stream: "exams" as Stream, id: r.id, changedAt: r.updatedAt, data: r, tombstone: false })),
+    ...curriculum.map((r) => ({ stream: "curriculum" as Stream, id: r.id, changedAt: r.createdAt, data: r, tombstone: false })),
   ]
-    .filter((r) => !(pos.ts && r.createdAt.toISOString() === pos.ts && pos.boundaryIds.includes(r.id)))
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    .filter((r) => !(pos.ts && r.changedAt.toISOString() === pos.ts && pos.boundaryIds.includes(r.id)))
+    .sort((a, b) => a.changedAt.getTime() - b.changedAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   const page = rows.slice(0, take);
   const hasMore = rows.length > take;
 
   const changes: Record<string, unknown[]> = { students: [], batches: [], exams: [], curriculum: [] };
-  for (const r of page) changes[r.stream].push(r.data);
+  const tombstones: PullDelta["tombstones"] = [];
+  for (const r of page) {
+    if (r.tombstone) {
+      tombstones.push({ entityType: r.stream, entityId: r.id, deletedAt: r.changedAt.toISOString() });
+    } else {
+      changes[r.stream].push(r.data);
+    }
+  }
 
-  // nextCursor never advances past an undelivered record: its ts is the last
-  // DELIVERED row's createdAt, with every id delivered at that ts recorded so the
-  // next page resumes without re-delivering or skipping.
   const last = page[page.length - 1];
-  const nextTs = last ? last.createdAt.toISOString() : pos.ts;
-  const boundaryIds = page.filter((r) => r.createdAt.toISOString() === nextTs).map((r) => r.id);
+  const nextTs = last ? last.changedAt.toISOString() : pos.ts;
+  const boundaryIds = page.filter((r) => r.changedAt.toISOString() === nextTs).map((r) => r.id);
 
   return {
     changes,
-    tombstones: [], // hard-delete tracking needs the change log (see file header)
+    tombstones,
     nextCursor: encodeCursor({
       tenantId: ctx.tenantId,
       scopeKey: scopeKeyFor(ctx),
