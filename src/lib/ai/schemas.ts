@@ -109,6 +109,9 @@ export const copilotActionSchema = z.object({
 
 export const copilotActionPlanSchema = z.object({
   id: z.string().min(1),
+  batchId: z.string().min(1).optional(),
+  studentIds: z.array(z.string().min(1)).optional(),
+  priority: z.enum(["CRITICAL", "HIGH", "MEDIUM"]).optional(),
   topic: z.string().min(1),
   subject: z.string().min(1),
   targetBatch: z.string().min(1),

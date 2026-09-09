@@ -697,6 +697,7 @@ model AIRequest {
   inputHash             String
   outcome               String
   latencyMs             Int
+  resultJson            String?
   createdById           String
   createdAt             DateTime @default(now())
 

@@ -139,6 +139,9 @@ export async function copilotWeaknessPlan(
 
   const plan: CopilotActionPlan = {
     id: randomUUID(),
+    batchId: input.batchId,
+    studentIds,
+    priority: worst.avg < 30 ? "CRITICAL" : "HIGH",
     topic: worst.concept,
     subject: worst.subject,
     targetBatch: batch.name,
@@ -165,6 +168,10 @@ export async function copilotWeaknessPlan(
 
   const check = copilotActionPlanSchema.safeParse(plan);
   if (!check.success) throw new Error("copilot plan failed schema validation");
+  // Persist the proposal so confirmation can be a separate audited action.
+  if (!aiRequestId.startsWith("unrecorded:")) {
+    await (prisma.aIRequest as any).update({ where: { id: aiRequestId }, data: { resultJson: JSON.stringify(check.data) } });
+  }
 
   metric("aiRequest", 1, { task: "copilot.query", outcome: "PLAN" });
   return {
