@@ -9,6 +9,7 @@ import { PATCH as editPatch } from "../../src/app/api/v1/exams/[id]/route";
 import { POST as finalizePost } from "../../src/app/api/v1/exams/[id]/finalize/route";
 import { GET as artifactsGet } from "../../src/app/api/v1/exams/[id]/artifacts/route";
 import { POST as omrJobsPost } from "../../src/app/api/v1/omr/jobs/route";
+import { POST as omrOverridePost } from "../../src/app/api/v1/omr/responses/[id]/override/route";
 import { POST as omrFinalizePost } from "../../src/app/api/v1/omr/jobs/[id]/finalize/route";
 import { GET as resultsGet } from "../../src/app/api/v1/results/exams/[id]/route";
 import { GET as portalGet } from "../../src/app/api/v1/parent/portal/route";
@@ -26,6 +27,8 @@ import { GET as portalGet } from "../../src/app/api/v1/parent/portal/route";
 let world: TestWorld;
 let teacherToken: string;
 let examId = "";
+let omrJobId = "";
+let ambiguousScanId = "";
 
 beforeAll(async () => {
   world = await createTestWorld();
@@ -189,9 +192,78 @@ describe("Golden loop / Stage 3 - OMR capture & review", () => {
     expect([400, 404, 409]).toContain(res.status);
   });
 
-  it.todo("S5: real image/PDF ingest, normalization, anchor + identity detection, per-bubble confidence - blocked on OMR-001");
-  it.todo("S6: low-confidence responses require review with cropped evidence; override records detected/final/actor - blocked on OMR-001 (see tests/omr-corpus)");
-  it.todo("S7: finalize is retry-safe and blocked while review items remain; one logical result per batch - blocked on OMR-002");
+  it("S5: ingests a scan batch; a double-marked sheet lands in REVIEW_REQUIRED, not scored", async () => {
+    const res = await call(omrJobsPost, "/api/v1/omr/jobs", {
+      token: teacherToken,
+      body: {
+        examId: world.a.exam.id,
+        simulatedSheets: [
+          { roll: world.a.student.rollNumber, grid: { 1: [0.9, 0.02, 0.01, 0.02] } }, // clean -> A
+          { roll: world.a.sibling.rollNumber, grid: { 1: [0.8, 0.02, 0.75, 0.02] } }, // A + C -> DOUBLE_MARK
+        ],
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.job.status).toBe("REVIEW_REQUIRED");
+    omrJobId = res.body.job.id;
+    const scans = res.body.job.scans as { id: string; status: string; detectedRollNumber: string }[];
+    expect(scans).toHaveLength(2);
+    ambiguousScanId = scans.find((s) => s.status === "AMBIGUOUS")!.id;
+    expect(ambiguousScanId).toBeTruthy();
+  });
+
+  it("S7-blocked: finalize is refused (409) while a scan is still under review", async () => {
+    const res = await call(omrFinalizePost, `/api/v1/omr/jobs/${omrJobId}/finalize`, {
+      token: teacherToken,
+      params: { id: omrJobId },
+      body: { idempotencyKey: "omr-final-1" },
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/review/i);
+  });
+
+  it("S6: an override records detected -> final -> actor and clears the review flag", async () => {
+    const res = await call(omrOverridePost, `/api/v1/omr/responses/${ambiguousScanId}/override`, {
+      token: teacherToken,
+      params: { id: ambiguousScanId },
+      body: { questionNumber: 1, newResponse: "A", reason: "double mark - resolved to A" },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.scan.status).toBe("OVERRIDDEN");
+    expect(JSON.parse(res.body.scan.verifiedResponses)["1"]).toBe("A");
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: "OMR_OVERRIDE", entityId: ambiguousScanId },
+      orderBy: { timestamp: "desc" },
+    });
+    const details = JSON.parse(audit!.details as string);
+    expect(details).toMatchObject({ questionNumber: 1, correctedValue: "A" });
+    expect(audit!.userId).toBeTruthy();
+  });
+
+  it("S6-guard: a stale expectedVersion override is rejected (409)", async () => {
+    const res = await call(omrOverridePost, `/api/v1/omr/responses/${ambiguousScanId}/override`, {
+      token: teacherToken,
+      params: { id: ambiguousScanId },
+      body: { questionNumber: 1, newResponse: "B", expectedVersion: 0 },
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it("S7-key: finalize requires an idempotency key", async () => {
+    const res = await call(omrFinalizePost, `/api/v1/omr/jobs/${omrJobId}/finalize`, {
+      token: teacherToken,
+      params: { id: omrJobId },
+      body: {},
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it.todo(
+    "S7: finalize succeeds once every flagged scan is resolved; same key replays to one result set, a different key 409s; a finalized job rejects overrides " +
+      "- BLOCKED: the OMR job stays status=REVIEW_REQUIRED after all its scans are overridden, and the finalize route also gates on job.status, so finalize " +
+      "permanently 409s. The override route (or a resolve step) must transition the job out of REVIEW_REQUIRED when no flagged scans remain. Flagged to Codex.",
+  );
 });
 
 describe("Golden loop / Stage 4 - evaluation & results", () => {
