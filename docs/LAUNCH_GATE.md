@@ -4,13 +4,13 @@ Living scorecard for the PRD Section 64 (p.66) launch gates and the Section 3.3 
 
 **Status legend**: `MET` (evidence present and green) · `PARTIAL` (in progress / API layer only / policy met but target unmeasured) · `NOT MET` · `MANUAL` (needs a pilot institute, real hardware, physical sheets, or a product/ops owner - cannot be closed by code).
 
-Snapshot: baseline `7652cb9` -> `2bb4c8c` + INT-001 scope remediation (2026-09-09). `npm test`: 34 files, 288 pass, 26 todo. `tsc` clean.
+Snapshot: baseline `7652cb9` -> `6c587bc` (INT-001 + REP-001 landed) (2026-09-09). `npm test`: 34 files, 290 pass, 24 todo. `tsc` clean.
 
 ## 1. PRD Section 64 gates
 
 | Gate | Go condition | Evidence | Status |
 |---|---|---|---|
-| Golden workflow | Real pilot exam completes end to end without an open P0/P1 | API layer proven S1-S11 in `tests/e2e/golden-workflow.e2e.test.ts` (auth -> students -> exam draft/review/finalize -> artifacts -> OMR ingest/review/override -> retry-safe finalize -> results -> mastery -> intervention -> retest -> VERIFIED). Remaining todos: S2a (STU-001), S4a (branded PDF + fiducial), S12a/b (REP-001). Browser layer: `browser-golden-workflow.e2e.test.ts` (mostly skipped). Real pilot run: MANUAL. | PARTIAL |
+| Golden workflow | Real pilot exam completes end to end without an open P0/P1 | API layer proven S1-S12 in `tests/e2e/golden-workflow.e2e.test.ts` (auth -> students -> exam draft/review/finalize -> artifacts -> OMR ingest/review/override -> retry-safe finalize -> results -> mastery -> intervention -> retest VERIFIED -> versioned report + scoped/expiring share link). Remaining todos: S2a (STU-001), S4a (branded PDF + fiducial), S8a/b (EVAL-001 golden vectors). Browser layer: `browser-golden-workflow.e2e.test.ts` (mostly skipped). Real pilot run: MANUAL. | PARTIAL |
 | Scoring | Validated deterministic test vectors pass | `tests/evaluation.test.ts`, `tests/mastery.test.ts` green; `multipleCorrectPolicy` is profile-configured (`67cd310`); `persistEvaluationResult` writes immutable revisions in one tx (`4a70c01`). Golden-vector / reproducible re-run / audited answer-key revision assertions S8a/S8b still todo (EVAL-001). | PARTIAL |
 | OMR | Supported-condition benchmark meets target, OR an explicit safe review policy is approved | Safe review policy is implemented and tested: `tests/omr-corpus/` baseline (false-confidence 0%, silent-miss 0%, 0/2 unsupported sheets leak CONFIDENT after `114070c`); raster front-end `tests/omr-corpus/raster.test.ts` (fiducials, deskew, REJECTED/UNMATCHED fail-safe); finalize blocked while review pending (`e90b4b4`/`db37941`). The >=99% target itself is UNMEASURED - needs a labelled physical corpus (MANUAL) and the real PNG/PDF decoder (OMR-001 backend half). | PARTIAL |
 | Security | Tenant isolation + critical RBAC tests pass | `tests/tenant-isolation.test.ts`, `tests/rbac-authorization.test.ts`, `tests/routes-foundation.test.ts` green; e2e AC-001 (cross-tenant results), AC-010 (parent scope), AC-015 (AI retrieval scope), AC-018 (Copilot scope) all live + green; server-side scope enforcement (`598b7dd`). Third-party penetration test: MANUAL. | MET (test layer) |
@@ -44,16 +44,16 @@ Recently closed by review: cross-tenant question leak in exam draft (`draft.ts`)
 
 ## 4. Golden-loop E2E meter
 
-`tests/e2e/**` `it.todo` count is the API-layer completion signal. **26 -> 0** closes the API side of the "Golden workflow" gate (browser E2E is a separate track).
+`tests/e2e/**` `it.todo` count is the API-layer completion signal. **24 -> 0** closes the API side of the "Golden workflow" gate (browser E2E is a separate track).
 
 | Blocking task | Remaining `it.todo` (API + browser) |
 |---|---|
 | EVAL-001 | S8a/S8b golden-vector scoring + audited answer-key revision |
 | OMR-001 (backend) | S4a branded PDF + scannable fiducial; browser upload/crop-review (with UI-005) |
 | OMR-002 | (browser only) retry-safe finalize UI with UI-005 |
-| REP-001 | S12a/S12b versioned report + scoped expiring share link + real multilingual facts |
 | CBT-001 | server clock, autosave/reconnect, eligibility, common result pipeline (4) |
 | STU-001 | S2a assigned-batch-only student visibility |
+| REP-001 | done - S12a/S12b live (`6c587bc`); browser parent-portal flow (with UI-007) remains |
 
 ## 5. Items that need the product owner / pilot (MANUAL)
 
