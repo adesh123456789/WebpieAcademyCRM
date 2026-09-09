@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { traceLogger } from "@/lib/observability";
 import type { AIContext, AIOutcome, AITask } from "./schemas";
 
 /** Stable JSON stringify (sorted keys) so the same logical input hashes the same. */
@@ -53,7 +54,11 @@ export async function recordAIRequest(ctx: AIContext, draft: ProvenanceDraft): P
     });
     return row.id;
   } catch (err) {
-    console.error(`[ai] provenance write failed trace=${ctx.traceId}:`, (err as Error).message);
+    traceLogger(ctx.traceId).error(
+      "ai.provenance_write_failed",
+      { task: draft.task, outcome: draft.outcome },
+      err,
+    );
     return `unrecorded:${ctx.traceId}`;
   }
 }

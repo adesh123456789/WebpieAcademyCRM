@@ -1,4 +1,5 @@
 import { performance } from "node:perf_hooks";
+import { metric, traceLogger } from "@/lib/observability";
 import { selectApprovedBankQuestions } from "./bank-fallback";
 import { parentSummaryPrompt, questionGeneratePrompt } from "./prompts";
 import { recordAIRequest } from "./provenance";
@@ -99,6 +100,8 @@ export class AIGateway {
         ...c,
         provenance: { ...c.provenance, aiRequestId },
       }));
+      metric("aiRequest", 1, { task: "question.generate", outcome: "MODEL" });
+      metric("aiLatency", Math.round(latencyMs), { task: "question.generate", outcome: "MODEL" });
       return {
         data: { candidates },
         outcome: "MODEL",
@@ -122,6 +125,9 @@ export class AIGateway {
       { tenantId: ctx.tenantId, concept: input.concept, difficulty: input.difficulty, count },
       aiRequestId,
     );
+    metric("aiRequest", 1, { task: "question.generate", outcome: "FALLBACK_BANK" });
+    metric("aiFallback", 1, { task: "question.generate", kind: "BANK", shortfall: count - candidates.length });
+    metric("aiLatency", Math.round(latencyMs), { task: "question.generate", outcome: "FALLBACK_BANK" });
     return {
       data: { candidates },
       outcome: "FALLBACK_BANK",
@@ -152,7 +158,7 @@ export class AIGateway {
         timeoutMs(),
       );
       if (!res.ok) {
-        console.error(`[ai] gemini http ${res.status} trace=${ctx.traceId}`);
+        traceLogger(ctx.traceId).warn("ai.gemini_http_error", { task: "question.generate", status: res.status });
         return null;
       }
       const data = (await res.json()) as {
@@ -163,7 +169,8 @@ export class AIGateway {
 
       const parsed = modelQuestionListSchema.safeParse(JSON.parse(text));
       if (!parsed.success) {
-        console.error(`[ai] gemini output failed schema trace=${ctx.traceId}`);
+        traceLogger(ctx.traceId).warn("ai.gemini_invalid_output", { task: "question.generate" });
+        metric("aiInvalidOutput", 1, { task: "question.generate" });
         return null;
       }
 
@@ -193,7 +200,10 @@ export class AIGateway {
       }
       return mapped.length > 0 ? mapped : null;
     } catch (err) {
-      console.error(`[ai] gemini call failed trace=${ctx.traceId}:`, (err as Error).message);
+      traceLogger(ctx.traceId).warn("ai.gemini_call_failed", {
+        task: "question.generate",
+        reason: (err as Error).message,
+      });
       return null;
     }
   }
@@ -220,6 +230,8 @@ export class AIGateway {
       outcome: "FALLBACK_TEMPLATE",
       latencyMs,
     });
+    metric("aiRequest", 1, { task: "report.parentSummary", outcome: "FALLBACK_TEMPLATE" });
+    metric("aiFallback", 1, { task: "report.parentSummary", kind: "TEMPLATE" });
     const summary: ParentSummary = {
       text,
       language: input.language,
