@@ -36,7 +36,7 @@ Three lanes: **Codex** (backend/data/schema/API), **Antigravity** (UI), **Claude
 | UI-009 | P1 / M | Antigravity | BACKLOG | UI-001, CMS-001 contract | Section editor/preview/publish/rollback/domain status, responsive public presentation |
 | CBT-001 | P1 / L | Codex | BACKLOG | SEC-001, EVAL-001 | Eligibility/server clock/autosave/reconnect/idempotent submit into common results, tenant flag; AC-011 and duplicate submission |
 | UI-010 | P1 / L | Antigravity | BACKLOG | UI-002, CBT-001 contract | CBT timer/palette/review/clear/resume and responsive/PWA baseline; disconnect/reconnect and server expiry browser tests |
-| SYN-001 | P0 / L | Claude + Codex | DONE | EVAL-001, FND-002 | C06 sync core, route layer, event appliers, cursor/update tracking, replay/revocation E2E and tombstone model integrated. |
+| SYN-001 | P0 / L | Claude + Codex | IN_PROGRESS | EVAL-001, FND-002 | C06 sync core, route layer, event appliers, cursor/update tracking, replay/revocation E2E and hard-delete tombstone model integrated. Pull consumption and transactional DELETE recording remain to close full A.6. |
 | EDGE-001 | P1 / L | Claude | BACKLOG | SYN-001, OMR-002 | Windows runtime/local store, secure secrets, signed update/rollback, disk guard; real offline scan/evaluate/reconnect, AC-013/014/020 |
 | UI-011 | P1 / M | Antigravity | DONE | UI-001, C06 acknowledged | Node pairing/status/queue/failure/conflict views driven by actual state. Handoff docs/handoffs/UI-011-antigravity.md |
 | AI-001 | P1 / L | Claude | BACKLOG | ACA-001, SEC-001 | Output schemas/provenance/timeouts, approved source retrieval, bank fallback and scoped Copilot actions; AC-003/015/018; remove invalid generator fallback. Split into CLD-003 (gateway hardening) plus Copilot tool scoping |
