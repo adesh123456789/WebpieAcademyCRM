@@ -70,15 +70,43 @@ describe("Golden loop / Stage 2 - exam builder & artifacts", () => {
   });
 
   it("S3-scope: exam creation rejects a question from another tenant", async () => {
+    const before = await prisma.exam.count({ where: { tenantId: world.a.tenant.id } });
     const res = await call(examsPost, "/api/v1/exams", {
       token: teacherToken,
       body: { title: "leak?", examType: "JEE_MAIN", questionIds: [world.b.question.id] },
     });
     expect([400, 403]).toContain(res.status);
+    expect(await prisma.exam.count({ where: { tenantId: world.a.tenant.id } })).toBe(before);
   });
 
   it.todo("S3a: draft -> review -> transactional finalize, immutable question snapshot - blocked on EXM-001");
-  it.todo("S3b: blueprint validation blocks impossible mark/count combinations - blocked on EXM-001");
+  it("S3b: blueprint validation blocks impossible mark/count combinations without partial writes", async () => {
+    const before = await prisma.exam.count({ where: { tenantId: world.a.tenant.id } });
+    for (const invalid of [{ totalMarks: 300 }, { totalQuestions: 75 }]) {
+      const res = await call(examsPost, "/api/v1/exams", {
+        token: teacherToken,
+        body: { title: "Invalid blueprint", examType: "JEE_MAIN", questionIds: [world.a.question.id], ...invalid },
+      });
+      expect(res.status).toBe(422);
+    }
+    expect(await prisma.exam.count({ where: { tenantId: world.a.tenant.id } })).toBe(before);
+    const draft = await prisma.exam.findUniqueOrThrow({ where: { id: examId }, include: { examQuestions: true } });
+    expect(draft.status).toBe("DRAFT");
+    expect(draft.finalizedAt).toBeNull();
+    expect(draft.totalMarks).toBe(draft.examQuestions.reduce((sum, q) => sum + q.marksCorrect, 0));
+    for (const invalid of [
+      { questionIds: [world.a.question.id, world.a.question.id] },
+      { markingRules: { correct: -4, incorrect: -1, unattempted: 0 } },
+      { batchIds: [world.b.batch.id] },
+    ]) {
+      const res = await call(examsPost, "/api/v1/exams", {
+        token: teacherToken,
+        body: { title: "Invalid selection", examType: "JEE_MAIN", questionIds: [world.a.question.id], ...invalid },
+      });
+      expect([400, 403]).toContain(res.status);
+    }
+    expect(await prisma.exam.count({ where: { tenantId: world.a.tenant.id } })).toBe(before);
+  });
 
   it("S4: exam artifact endpoint responds for a real exam", async () => {
     expect(examId).toBeTruthy();
