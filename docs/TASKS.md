@@ -40,7 +40,7 @@ Three lanes: **Codex** (backend/data/schema/API), **Antigravity** (UI), **Claude
 | EDGE-001 | P1 / L | Claude | BACKLOG | SYN-001, OMR-002 | Windows runtime/local store, secure secrets, signed update/rollback, disk guard; real offline scan/evaluate/reconnect, AC-013/014/020 |
 | UI-011 | P1 / M | Antigravity | DONE | UI-001, C06 acknowledged | Node pairing/status/queue/failure/conflict views driven by actual state. Handoff docs/handoffs/UI-011-antigravity.md |
 | AI-001 | P1 / L | Claude | BACKLOG | ACA-001, SEC-001 | Output schemas/provenance/timeouts, approved source retrieval, bank fallback and scoped Copilot actions; AC-003/015/018; remove invalid generator fallback. Split into CLD-003 (gateway hardening) plus Copilot tool scoping |
-| UI-012 | P1 / M | Antigravity | BACKLOG | UI-001, AI-001 contract | Candidate review and Copilot evidence/action preview; uncertainty/fallback visible; Tutor only behind Beta flag |
+| UI-012 | P1 / M | Antigravity | DONE | UI-001, AI-001 contract | Candidate review and Copilot evidence/action preview; uncertainty/fallback visible; Tutor only behind Beta flag |
 | REL-001 | P0 / L | Claude (integrator) + Codex + Antigravity + product owner | BACKLOG | Core slice above, CLD-004 | Integrated teacher/parent E2E, OMR corpus metrics, load/restore/rollback, pilot teacher timing and sign-off; PRD p. 66 gates recorded |
 
 ### First implementation wave
