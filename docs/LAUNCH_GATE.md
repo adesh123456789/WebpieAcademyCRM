@@ -4,7 +4,7 @@ Living scorecard for the PRD Section 64 (p.66) launch gates and the Section 3.3 
 
 **Status legend**: `MET` (evidence present and green) · `PARTIAL` (in progress / API layer only / policy met but target unmeasured) · `NOT MET` · `MANUAL` (needs a pilot institute, real hardware, physical sheets, or a product/ops owner - cannot be closed by code).
 
-Snapshot: baseline `7652cb9` -> `6c587bc` (INT-001 + REP-001 landed) (2026-09-09). `npm test`: 34 files, 290 pass, 24 todo. `tsc` clean.
+Snapshot: baseline `7652cb9` -> `146ecc5` (INT-001, REP-001, sampler-aligned OMR artifact + sharp decoder, CBT-001 landed) (2026-09-09). `npm test`: 35 files, 301 pass, 16 todo (all browser-lane). `tsc` clean.
 
 ## 1. PRD Section 64 gates
 
@@ -12,7 +12,7 @@ Snapshot: baseline `7652cb9` -> `6c587bc` (INT-001 + REP-001 landed) (2026-09-09
 |---|---|---|---|
 | Golden workflow | Real pilot exam completes end to end without an open P0/P1 | API layer S1-S12 has no remaining todos: assigned-batch scope, exam lifecycle, sampler-aligned branded OMR artifact, OMR review/finalize, deterministic revisions, mastery/intervention/retest, and versioned reports are green. Browser layer remains partial and a real pilot run is MANUAL. | PARTIAL |
 | Scoring | Validated deterministic test vectors pass | `tests/evaluation.test.ts` and golden S8a/S8b are green: profile-configured marking (`67cd310`), deterministic rank/percentile reruns, immutable result versions (`4a70c01`), and audited answer-key correction revisions (`33fb1fe`). | MET |
-| OMR | Supported-condition benchmark meets target, OR an explicit safe review policy is approved | Safe review policy is implemented and tested: `tests/omr-corpus/` baseline (false-confidence 0%, silent-miss 0%, 0/2 unsupported sheets leak CONFIDENT after `114070c`); raster front-end `tests/omr-corpus/raster.test.ts` (fiducials, deskew, REJECTED/UNMATCHED fail-safe); finalize blocked while review pending (`e90b4b4`/`db37941`). The >=99% target itself is UNMEASURED - needs a labelled physical corpus (MANUAL) and the real PNG/PDF decoder (OMR-001 backend half). | PARTIAL |
+| OMR | Supported-condition benchmark meets target, OR an explicit safe review policy is approved | Safe review policy is implemented and tested: `tests/omr-corpus/` baseline (false-confidence 0%, silent-miss 0%, 0/2 unsupported sheets leak CONFIDENT after `114070c`); raster front-end `tests/omr-corpus/raster.test.ts` (fiducials, deskew, REJECTED/UNMATCHED fail-safe); finalize blocked while review pending (`e90b4b4`/`db37941`). The real PNG/PDF decoder landed (`146ecc5`, sharp) and the multipart route now decodes uploads straight into the raster front-end (`tests/omr-corpus/image-decoder.test.ts`). The >=99% target itself is still UNMEASURED - needs a labelled physical corpus (MANUAL); object storage is a local-disk seam. | PARTIAL |
 | Security | Tenant isolation + critical RBAC tests pass | `tests/tenant-isolation.test.ts`, `tests/rbac-authorization.test.ts`, `tests/routes-foundation.test.ts` green; e2e AC-001 (cross-tenant results), AC-010 (parent scope), AC-015 (AI retrieval scope), AC-018 (Copilot scope) all live + green; server-side scope enforcement (`598b7dd`). Third-party penetration test: MANUAL. | MET (test layer) |
 | Data | Backup / restore tested | Postgres provider mirror + migrations `0001`-`0009` (FND-002); repeatable dump/restore scripts and drill procedure in `scripts/backup-postgres.ps1`, `scripts/restore-postgres.ps1`, and `docs/ops/backup-restore.md`. **A disposable restore drill still must be executed and evidenced.** | NOT MET |
 | Sync | Offline / reconnect scenarios pass on the pilot node | `tests/e2e/offline-node.e2e.test.ts`, `offline-session.e2e.test.ts`, `sync-node.e2e.test.ts` green - pair -> offline ingest + local eval -> reconnect drains through the real `/sync/push` -> idempotent replay -> stale/conflict retained -> token rotation -> revoked node rejected (AC-013/AC-014 at the API layer). Signed transport + encrypted secrets (`f0f5ef1`, `6c68017`). Real Windows hardware node + a full outage drill: MANUAL. | PARTIAL |
@@ -44,13 +44,13 @@ Recently closed by review: cross-tenant question leak in exam draft (`draft.ts`)
 
 ## 4. Golden-loop E2E meter
 
-`tests/e2e/**` `it.todo` count is the API-layer completion signal. **24 -> 0** closes the API side of the "Golden workflow" gate (browser E2E is a separate track).
+`tests/e2e/**` `it.todo` count is the API-layer completion signal. **The API side is at 0**; 16 `it.todo` remain, all in `tests/e2e/browser-golden-workflow.e2e.test.ts` (a separate UI track gated on UI-005/006/007).
 
 | Blocking task | Remaining `it.todo` (API + browser) |
 |---|---|
-| OMR-001 (backend) | API S4a is green; real multipart PNG/PDF decoding, object-storage upload, and browser crop-review remain |
+| OMR-001 (backend) | API S4a green; real multipart PNG/PDF decode landed (`146ecc5`, sharp; `tests/omr-corpus/image-decoder.test.ts` proves the decode round-trips into the raster front-end). Object storage is a local-disk seam (`LocalObjectStorage`); browser crop-review (UI-005) remains |
 | OMR-002 | (browser only) retry-safe finalize UI with UI-005 |
-| CBT-001 | server clock, autosave/reconnect, eligibility, common result pipeline (4) |
+| CBT-001 | done (`5e1d99b`) - server-authoritative clock, autosave/reconnect, eligibility window + attempt-limit, and the shared `ExamResult`/`MasteryEvidence` pipeline are all live in `tests/e2e/cbt-ownership.e2e.test.ts` (8 tests, 0 todo) |
 | REP-001 | done - S12a/S12b live (`6c587bc`); browser parent-portal flow (with UI-007) remains |
 
 ## 5. Items that need the product owner / pilot (MANUAL)
