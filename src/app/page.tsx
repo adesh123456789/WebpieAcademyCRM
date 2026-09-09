@@ -686,13 +686,11 @@ export default function WebPieAcademicOS() {
   async function handleConfirmCopilotPlan(planId: string) {
     setIsConfirmingCopilotPlan(true);
     try {
-      const res = await fetch(`/api/v1/ai/copilot/${planId}/confirm`, {
+      const res = await fetch("/api/v1/ai/copilot/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId,
-          batchId: copilotActionPlan?.targetBatch || "batch_rankers_2026",
-          topic: copilotActionPlan?.topic,
         }),
       });
 
