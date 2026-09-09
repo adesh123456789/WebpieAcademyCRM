@@ -16,5 +16,6 @@ export * from "./modals/ExamWizardModal";
 export * from "./modals/UploadOmrBatchModal";
 export * from "./modals/StudentResultDrilldownModal";
 export * from "./modals/WorksheetEditorModal";
+export * from "./modals/ShareReportModal";
 export * from "./auth/LoginView";
 export * from "./views";

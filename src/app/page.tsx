@@ -66,6 +66,7 @@ import {
   UploadOmrBatchModal,
   StudentResultDrilldownModal,
   WorksheetEditorModal,
+  ShareReportModal,
   LoginView,
   AuthenticatedUser,
   SuperAdminView,
@@ -155,6 +156,8 @@ export default function WebPieAcademicOS() {
   const [feesData, setFeesData] = useState<any>(null);
   const [parentReport, setParentReport] = useState<any>(null);
   const [parentLang, setParentLang] = useState<"en" | "hi" | "mr">("en");
+  const [selectedParentRoll, setSelectedParentRoll] = useState<string>("260001");
+  const [isShareReportModalOpen, setIsShareReportModalOpen] = useState<boolean>(false);
   const [websiteData, setWebsiteData] = useState<any>(null);
 
   // Super Admin & Provisioning State
@@ -1246,7 +1249,17 @@ export default function WebPieAcademicOS() {
               parentLang={parentLang}
               onSelectParentLang={(lang) => {
                 setParentLang(lang);
-                loadParentPortal("260001", lang);
+                loadParentPortal(selectedParentRoll, lang);
+              }}
+              linkedStudents={students}
+              selectedRoll={selectedParentRoll}
+              onSelectStudent={(roll) => {
+                setSelectedParentRoll(roll);
+                loadParentPortal(roll, parentLang);
+              }}
+              onOpenShareModal={() => setIsShareReportModalOpen(true)}
+              onDownloadReportPdf={() => {
+                showToast("Generating verified diagnostic report PDF...");
               }}
             />
           )}
@@ -1314,6 +1327,14 @@ export default function WebPieAcademicOS() {
           showToast(`Remedial Worksheet for "${worksheetModalConcept}" customized and saved (${editedQuestions.length} practice items). Exporting PDF...`);
           setWorksheetModalConcept(null);
         }}
+      />
+
+      <ShareReportModal
+        isOpen={isShareReportModalOpen}
+        onClose={() => setIsShareReportModalOpen(false)}
+        student={parentReport?.student || (students.find((s) => s.rollNumber === selectedParentRoll) || null)}
+        reportSummary={parentReport?.summary}
+        showToast={showToast}
       />
 
       <ProvisionAcademyModal
