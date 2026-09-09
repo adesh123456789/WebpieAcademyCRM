@@ -91,7 +91,7 @@ describe("OMR_SCAN applier", () => {
     const scan = await prisma.oMRScan.create({ data: { jobId: job.id, studentId: world.a.student.id, status: "AMBIGUOUS",
       detectedResponses: "{}", verifiedResponses: "{}" } });
     const e = evt({ entityType: "OMR_SCAN", entityId: scan.id, entityVersion: 1,
-      payload: { detectedResponses: { 1: "A", 2: "C" }, status: "OVERRIDDEN", confidenceScore: 0.95 } });
+      payload: { jobId: job.id, detectedResponses: { 1: "A", 2: "C" }, status: "OVERRIDDEN", confidenceScore: 0.95 } });
     expect((await push(e)).results[0].status).toBe("APPLIED");
     const after = await prisma.oMRScan.findUnique({ where: { id: scan.id } });
     expect(after?.status).toBe("OVERRIDDEN");
