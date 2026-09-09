@@ -141,9 +141,9 @@ function darkCentroid(
 export function locateFiducials(img: GrayscaleImage, threshold: number): Point[] | null {
   const w = img.width;
   const h = img.height;
-  const winW = Math.max(8, Math.round(w * 0.14));
-  const winH = Math.max(8, Math.round(h * 0.14));
-  const minInk = Math.max(6, Math.round(winW * winH * 0.02));
+  const winW = Math.max(8, Math.round(w * 0.15));
+  const winH = Math.max(8, Math.round(h * 0.15));
+  const minInk = Math.max(6, Math.round(winW * winH * 0.008));
 
   const corners: [number, number, number, number][] = [
     [0, 0, winW, winH],

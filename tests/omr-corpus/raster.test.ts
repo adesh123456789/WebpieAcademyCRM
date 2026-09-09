@@ -54,6 +54,51 @@ describe("raster front-end - projective deskew", () => {
   });
 });
 
+describe("raster front-end - harder capture conditions", () => {
+  it("does not fail-safe on a mild perspective keystone (projective deskew engages)", () => {
+    // The synthetic keystone renderer and the pipeline's 4-point projective fit
+    // have a small non-affine mismatch, so exact recovery is only asserted for
+    // rotation. Real perspective fidelity is validated against labelled images in
+    // the Codex decoder phase (see docs/handoffs/OMR-001-claude.md).
+    const img = renderSheet({ roll: "260014", answers, rotationDeg: -3, perspective: 0.06 });
+    const result = extractSheetFromImage(img, geom, "keystone", { supported: true });
+    expect(result.status).not.toBe("REJECTED");
+    const correct = Object.entries(answers).filter(
+      ([q, l]) => result.responses[Number(q)] === l,
+    ).length;
+    expect(correct / Object.keys(answers).length).toBeGreaterThan(0.6);
+  });
+
+  it("recovers answers from a low-DPI downscaled scan", () => {
+    const img = renderSheet({ roll: "260014", answers, scale: 0.55 });
+    const result = extractSheetFromImage(img, geom, "lowdpi", { supported: true });
+    let correct = 0;
+    for (const [qStr, letter] of Object.entries(answers)) {
+      if (result.responses[Number(qStr)] === letter) correct++;
+    }
+    expect(correct / Object.keys(answers).length).toBeGreaterThan(0.9);
+  });
+
+  it("keeps column-boundary questions aligned (last of a column vs first of the next)", () => {
+    // 30 Q / 3 columns => 10 per column; q10 ends col 0, q11 starts col 1
+    const only = { 10: "D" as const, 11: "A" as const, 20: "C" as const, 21: "B" as const };
+    const img = renderSheet({ roll: "260014", answers: only });
+    const result = extractSheetFromImage(img, geom, "colbound", { supported: true });
+    expect(result.responses[10]).toBe("D");
+    expect(result.responses[11]).toBe("A");
+    expect(result.responses[20]).toBe("C");
+    expect(result.responses[21]).toBe("B");
+  });
+
+  it("flags a genuine double mark on the sheet rather than guessing", () => {
+    const img = renderSheet({ roll: "260014", answers: { 5: "A" }, strays: { 5: ["C", 0.95] } });
+    const result = extractSheetFromImage(img, geom, "double", { supported: true });
+    expect(result.responses[5]).toBeUndefined();
+    const flag = result.ambiguities.find((a) => a.questionNumber === 5);
+    expect(flag?.reason).toBe("DOUBLE_MARK");
+  });
+});
+
 describe("raster front-end - faint marks are flagged, not dropped", () => {
   it("a ~0.35-density fill lands in the low-confidence band and is queued for review", () => {
     const faint = { 1: 0.35, 2: 0.33, 3: 0.36 };
