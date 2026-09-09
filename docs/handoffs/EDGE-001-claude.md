@@ -16,13 +16,25 @@
 
 `src/lib/sync/schemas.ts` `omrScanPayload` did not match the `OMR_SCAN` domain applier: the schema had `examId` / `studentRollNumber` / `confidenceScores` (record) and **no `jobId` / `status`**, so `parsePushBatch` stripped `jobId` and every real OMR scan sync went `REJECTED` (the applier's `upsert` create needs `jobId`). Schema now is `{ jobId, studentId?, detectedRollNumber?, detectedResponses, verifiedResponses?, confidenceScore, status, scannedAt? }` - aligned to the applier and the offline node. The `sync-node` E2E passed before only because it used `ENROLLMENT` events.
 
-## Remaining EDGE-001 (blocked on OMR-002)
+## Update - local store + health guard + offline session (`458e528`, OMR-002 now landed)
 
-- Windows process + local API on localhost/LAN, tenant-paired.
-- Local SQLite store: cached roster/exams from `buildPullDelta`, durable outbox table (currently `SyncEventEnvelope[]` in memory).
-- Local deterministic evaluation on synced results; cloud finalize integration once OMR-002's retry-safe job path lands.
-- Signed update manifest + rollback; disk/RAM health guard (AC-020).
-- `verifyNodeSignature` (already in `src/lib/sync/node-auth.ts`) enabled on the node's push/pull calls.
+- `src/lib/node/local-store.ts` - `NodeStore` contract (pairing, cached roster/exams, local scans, durable outbox, pull cursor, `applyDelta`) + `MemoryNodeStore` reference impl.
+- `src/lib/node/health.ts` - `checkNodeHealth` / `assertHealthyForHeavyJob`. **Disk guard PAUSEs a heavy job on low storage (AC-020)**; memory-low is WARN only (`os.freemem()` ignores reclaimable cache, so it is an unreliable stop signal - deployments can opt into a mem PAUSE via thresholds).
+- `src/lib/node/offline-session.ts` - `OfflineSession(store)`:
+  - `reconnect({ pull })` - loops `buildPullDelta` pages into the store, advances + persists the pull cursor.
+  - `ingestScan()` - raster + deterministic extraction -> `store.putScan` + an `OMR_SCAN` outbox event; roll -> studentId resolved from the cached roster. Health-guarded.
+  - `evaluateExamLocally()` - advisory local deterministic score for the offline teacher view (NOT authoritative; the cloud re-evaluates on sync via OMR-002's finalize).
+  - `reconnect({ push })` - `drainOutbox` -> `POST /api/v1/sync/push` -> `store.dequeue(delivered)`.
+  - `toCachedExam()` helper (cloud exam row -> `CachedExam`).
+- `tests/e2e/offline-session.e2e.test.ts` (5) - pull roster -> offline ingest + local eval -> reconnect drains through the real push route (OMRScan rows land), idempotent re-reconnect, cursor advance, disk-PAUSE refuses ingest.
+
+## Remaining EDGE-001
+
+- Windows process + local API on localhost/LAN, tenant-paired (thin wrapper over `OfflineSession`).
+- SQLite-backed `NodeStore` (same interface; needs a `better-sqlite3` / Prisma-SQLite dependency decision - Codex/package.json).
+- Node calls sign requests with `verifyNodeSignature` (helper already in `src/lib/sync/node-auth.ts`); pairing token stored via OS-secure mechanism.
+- Signed update manifest + rollback (AC-020 update path) - needs packaging decisions.
+- Trigger cloud finalize from the node after `reconnect(push)` so the authoritative result exists.
 
 ## Checks
 
