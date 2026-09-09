@@ -5,6 +5,7 @@ import { call, createTestWorld, loginAs, type TestWorld } from "./support/harnes
 import { GET as studentsGet } from "../../src/app/api/v1/students/route";
 import { POST as examsPost } from "../../src/app/api/v1/exams/route";
 import { POST as reviewPost } from "../../src/app/api/v1/exams/[id]/review/route";
+import { PATCH as editPatch } from "../../src/app/api/v1/exams/[id]/route";
 import { POST as finalizePost } from "../../src/app/api/v1/exams/[id]/finalize/route";
 import { GET as artifactsGet } from "../../src/app/api/v1/exams/[id]/artifacts/route";
 import { POST as omrJobsPost } from "../../src/app/api/v1/omr/jobs/route";
@@ -93,6 +94,10 @@ describe("Golden loop / Stage 2 - exam builder & artifacts", () => {
     expect(finalized.body.snapshotId).toBeTruthy();
     expect((await transition(finalizePost, { expectedVersion: 2, idempotencyKey: "finalize-1" })).body).toEqual(finalized.body);
     expect((await transition(finalizePost, { expectedVersion: 2, idempotencyKey: "different" })).status).toBe(409);
+    const frozen = await prisma.exam.findUniqueOrThrow({ where: { id } });
+    expect((await call(editPatch, `/api/v1/exams/${id}`, { token: teacherToken, params: { id },
+      body: { expectedVersion: finalized.body.version, title: "Overwrite finalized" } })).status).toBe(409);
+    expect(await prisma.exam.findUniqueOrThrow({ where: { id } })).toEqual(frozen);
     const original = await prisma.question.findUniqueOrThrow({ where: { id: world.a.question.id } });
     await prisma.question.update({ where: { id: original.id }, data: { correctAnswer: JSON.stringify("D"), body: "Changed source" } });
     try {
@@ -118,6 +123,16 @@ describe("Golden loop / Stage 2 - exam builder & artifacts", () => {
     } finally {
       await prisma.question.update({ where: { id: original.id }, data: { body: original.body } });
     }
+    const edit = (body: object) => call(editPatch, `/api/v1/exams/${guardId}`, { token: teacherToken, params: { id: guardId }, body });
+    expect((await edit({ expectedVersion: 2, questionIds: [world.b.question.id] })).status).toBe(403);
+    const revised = await edit({ expectedVersion: 2, title: "Revised draft", markingRules: { correct: 5, incorrect: -2, unattempted: 0 } });
+    expect(revised.status).toBe(200);
+    expect(revised.body.exam).toMatchObject({ status: "DRAFT", version: 3, title: "Revised draft", totalMarks: 5 });
+    expect(JSON.parse(revised.body.exam.blueprint).reviewHash).toBeUndefined();
+    expect((await edit({ expectedVersion: 2, title: "Stale edit" })).status).toBe(409);
+    expect((await guard(finalizePost, { expectedVersion: 3, idempotencyKey: "without-review" })).status).toBe(409);
+    expect((await guard(reviewPost, { expectedVersion: 3 })).body).toMatchObject({ status: "IN_REVIEW", version: 4 });
+    expect(await prisma.auditLog.count({ where: { entityId: guardId, action: "EXAM_EDIT" } })).toBe(1);
   });
   it("S3b: blueprint validation blocks impossible mark/count combinations without partial writes", async () => {
     const before = await prisma.exam.count({ where: { tenantId: world.a.tenant.id } });
