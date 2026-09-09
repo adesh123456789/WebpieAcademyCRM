@@ -670,6 +670,19 @@ model SyncEvent {
   @@index([tenantId, entityType, entityId, entityVersion])
 }
 
+model SyncChange {
+  id         String   @id @default(uuid())
+  tenantId   String
+  branchId   String?
+  entityType String
+  entityId   String
+  operation  String   // UPSERT | DELETE
+  changedAt  DateTime @default(now())
+
+  @@index([tenantId, branchId, changedAt])
+  @@index([tenantId, entityType, entityId, changedAt])
+}
+
 model AIRequest {
   id                    String   @id @default(uuid())
   tenantId              String

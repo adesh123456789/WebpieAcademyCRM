@@ -8,4 +8,4 @@ Integrated in `e82d9e6`.
 - `verifyNode` now rejects revoked nodes and inclusive token expiry.
 - Added `updatedAt @updatedAt` to Student, Batch, Enrollment and Exam in both provider schemas with migration `0005_sync_stream_timestamps`.
 
-Claude follow-up: update `buildPullDelta` to use updatedAt (and add tombstone/change-log support when available). Handshake token CAS rotation remains in the legacy service route and should be completed before SYN-001 closes. Domain appliers should add entity existence/upsert policy tests against the database.
+Follow-up completed: Claude landed updatedAt-based pulls and soft-delete tombstones in `21df233`; route E2E landed in `c08846e`; token CAS and OMR scan upsert landed in `f34f5c8`; per-event metrics landed in `bdf9387`. Codex added `SyncChange` in both schemas and migration `0006_sync_tombstones` for hard-delete tombstone recording. Callers must record a DELETE change in the same transaction as hard deletion before expecting it on pull.
