@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { usePinnedQuestions } from "@/lib/exams/lifecycle";
 import { DeterministicEvaluationEngine, ExamQuestionConfig, StudentAttemptInput } from "@/lib/academic/evaluation-engine";
 import { MasteryAlgorithmEngine, MasteryEvidenceItem } from "@/lib/academic/mastery-engine";
+import { persistEvaluationResult } from "@/lib/academic/result-persistence";
 
 export async function POST(
   req: NextRequest,
@@ -86,41 +87,7 @@ export async function POST(
 
     // Save Exam Results & Mastery Evidence
     for (const evalRes of evaluatedResults) {
-      await prisma.examResult.upsert({
-        where: {
-          examId_studentId_version: {
-            examId: job.examId,
-            studentId: evalRes.studentId,
-            version: 1,
-          },
-        },
-        create: {
-          tenantId: session.tenantId,
-          examId: job.examId,
-          studentId: evalRes.studentId,
-          batchId: job.batchId,
-          score: evalRes.totalMarks,
-          maximumMarks: evalRes.maximumMarks,
-          accuracyPercentage: evalRes.accuracyPercentage,
-          totalAttempted: evalRes.totalAttempted,
-          totalCorrect: evalRes.totalCorrect,
-          totalIncorrect: evalRes.totalIncorrect,
-          totalUnattempted: evalRes.totalUnattempted,
-          negativeMarksDeducted: evalRes.negativeMarksDeducted,
-          cohortRank: evalRes.cohortRank,
-          cohortPercentile: evalRes.cohortPercentile,
-          subjectScores: JSON.stringify(evalRes.subjectScores),
-          questionResponses: JSON.stringify(evalRes.questionDetails),
-          isFinal: true,
-        },
-        update: {
-          score: evalRes.totalMarks,
-          accuracyPercentage: evalRes.accuracyPercentage,
-          cohortRank: evalRes.cohortRank,
-          cohortPercentile: evalRes.cohortPercentile,
-          questionResponses: JSON.stringify(evalRes.questionDetails),
-        },
-      });
+      await persistEvaluationResult({ tenantId: session.tenantId, examId: job.examId, batchId: job.batchId, result: evalRes });
 
       // Insert Mastery Evidence
       for (const qDetail of evalRes.questionDetails) {

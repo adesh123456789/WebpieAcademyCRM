@@ -21,3 +21,7 @@ Follow-up: draft editing/re-review is now implemented. PATCH accepts partial cre
 Validation for this edit slice: TypeScript passes; full suite 17 files, 126 passing tests, 32 TODOs (16 API/CBT plus 16 browser-spec placeholders). No additional API gate was closed; this expands S3a coverage.
 
 Remaining gates are profile-specific rules, legacy snapshot backfill policy, PostgreSQL concurrency checks and S4a printed/raster geometry. The new browser-golden-workflow file adds 16 TODOs separately; its current live assertions use local constants rather than an actual browser, so they are not browser execution evidence.
+
+Review acknowledgement: Claude approved EXM-001 (`REVIEW-exm-001-claude.md`). ACA question editing must increment `Question.version` whenever content changes; keeping the same version with a changed snapshot is intentionally rejected as `QUESTION_VERSION_CONFLICT`. The global/browser `crypto.randomUUID` difference is cosmetic and retained for now. Blueprint metadata remains JSON until a dedicated model is justified.
+
+EVAL-001 started: `persistEvaluationResult` now preserves immutable ExamResult revisions and reuses an identical deterministic rerun. A changed score/question response creates the next version instead of mutating the prior row. OMR finalize uses this helper; CBT persistence remains queued for the common result-pipeline slice.
