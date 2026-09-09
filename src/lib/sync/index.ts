@@ -26,7 +26,7 @@ export {
 export { canonicalize, canonicalPayloadHash } from "./canonical";
 export { encodeCursor, decodeCursor, scopeKeyFor, type CursorState } from "./cursor";
 export { classifyConflict, type ConflictDecision } from "./conflict";
-export { verifyNodeSignature, nodeSignature } from "./node-auth";
+export { verifyNodeSignature, verifyNodeRequest, nodeSignature } from "./node-auth";
 export { applyPushEvents } from "./apply";
 export { buildPullDelta } from "./pull";
 export { domainAppliers } from "./domain-appliers";

@@ -12,6 +12,7 @@ import {
   FileText,
   Clock,
   ArrowRight,
+  Smile,
 } from "lucide-react";
 
 export interface CopilotActionPlan {
@@ -28,7 +29,8 @@ export interface CopilotActionPlan {
   }[];
   retrievalScope: "TENANT_PRIVATE" | "WEBPIE_APPROVED_BANK";
   confidenceScore: number;
-  aiRequestId?: string;
+  aiRequestId: string;
+  status: "PROPOSED";
 }
 
 interface CopilotActionPreviewModalProps {
@@ -36,6 +38,7 @@ interface CopilotActionPreviewModalProps {
   onClose: () => void;
   actionPlan: CopilotActionPlan | null;
   onConfirmPlan: (planId: string) => void;
+  isConfirming?: boolean;
 }
 
 export const CopilotActionPreviewModal: React.FC<CopilotActionPreviewModalProps> = ({
@@ -43,8 +46,58 @@ export const CopilotActionPreviewModal: React.FC<CopilotActionPreviewModalProps>
   onClose,
   actionPlan,
   onConfirmPlan,
+  isConfirming = false,
 }) => {
-  if (!isOpen || !actionPlan) return null;
+  if (!isOpen) return null;
+
+  // Empty State: data === null means "no weaknesses in scope" (Contract AI-001 / PRD Section 30)
+  if (!actionPlan) {
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 text-white p-5 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/30 border border-indigo-400/40 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-indigo-200" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold tracking-tight">Teacher Copilot — Batch Diagnosis</h2>
+                <p className="text-[11px] text-indigo-200">
+                  Concept mastery review & weakness detection
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-indigo-200 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="p-8 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto shadow-sm">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-900">No Critical Weaknesses in Scope</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                All students in this batch are currently performing above the intervention threshold across evaluated concepts. No remedial action plan is required at this time.
+              </p>
+            </div>
+            <div className="pt-2">
+              <button
+                onClick={onClose}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-5 py-2.5 rounded-xl transition border border-slate-300"
+              >
+                Close Diagnosis
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -56,7 +109,12 @@ export const CopilotActionPreviewModal: React.FC<CopilotActionPreviewModalProps>
               <Sparkles className="w-4 h-4 text-indigo-200" />
             </div>
             <div>
-              <h2 className="text-sm font-bold tracking-tight">Teacher Copilot — Action Plan Preview</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold tracking-tight">Teacher Copilot — Action Plan Preview</h2>
+                <span className="text-[10px] bg-amber-400/20 text-amber-200 border border-amber-300/30 font-mono px-2 py-0.5 rounded-full font-bold">
+                  {actionPlan.status || "PROPOSED"}
+                </span>
+              </div>
               <p className="text-[11px] text-indigo-200">
                 Ground-truth academic diagnosis & structured intervention roadmap
               </p>
@@ -113,11 +171,11 @@ export const CopilotActionPreviewModal: React.FC<CopilotActionPreviewModalProps>
           <div className="space-y-2.5">
             <div className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              Proposed Remedial Interventions ({actionPlan.recommendedActions.length})
+              Proposed Remedial Interventions ({actionPlan.recommendedActions?.length || 0})
             </div>
 
             <div className="space-y-2">
-              {actionPlan.recommendedActions.map((act, i) => (
+              {actionPlan.recommendedActions?.map((act, i) => (
                 <div
                   key={i}
                   className="bg-white border border-slate-200 rounded-xl p-3.5 text-xs space-y-1 hover:border-indigo-300 transition shadow-sm"
@@ -158,9 +216,10 @@ export const CopilotActionPreviewModal: React.FC<CopilotActionPreviewModalProps>
           </button>
           <button
             onClick={() => onConfirmPlan(actionPlan.id)}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-sm transition"
+            disabled={isConfirming}
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-sm transition disabled:opacity-50"
           >
-            Confirm & Schedule Roadmap
+            {isConfirming ? "Confirming Plan..." : "Confirm & Schedule Roadmap"}
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

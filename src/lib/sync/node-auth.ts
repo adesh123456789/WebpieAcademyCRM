@@ -40,3 +40,23 @@ export function verifyNodeSignature(
   }
   return true;
 }
+
+/**
+ * Route-layer adoption seam. Bearer auth + `verifyNode` (expiry/revocation) stay
+ * Codex's; this adds the optional signature check:
+ *  - signature headers present, or `requireSignature` -> `verifyNodeSignature` must pass
+ *  - neither -> bearer-only (v1 default)
+ * Enable enforcement per deployment via `SYNC_REQUIRE_NODE_SIGNATURE=1`.
+ */
+export function verifyNodeRequest(
+  rawBody: string,
+  headers: HeaderLike,
+  node: { pairingToken: string },
+  opts: { requireSignature?: boolean } = {},
+): { signed: boolean } {
+  const hasHeaders = Boolean(headers.get("x-node-signature") && headers.get("x-node-timestamp"));
+  const require = opts.requireSignature ?? process.env.SYNC_REQUIRE_NODE_SIGNATURE === "1";
+  if (!hasHeaders && !require) return { signed: false };
+  verifyNodeSignature(rawBody, headers, node);
+  return { signed: true };
+}
