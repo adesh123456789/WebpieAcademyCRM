@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { getTraceId, metric, traceLogger } from "./observability";
 import { NextRequest } from "next/server";
 import { prisma } from "./prisma";
 
@@ -122,7 +123,8 @@ export async function createAuditLog({
         ipAddress,
       },
     });
-  } catch (e) {
-    console.error("Failed to write audit log:", e);
+    metric("privilegedAction", 1, { action, entityType });
+  } catch {
+    traceLogger(getTraceId()).error("audit.write_failed", { action, entityType });
   }
 }
