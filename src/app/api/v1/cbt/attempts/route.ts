@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext, getStudentForSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { usePinnedQuestions } from "@/lib/exams/lifecycle";
 import { DeterministicEvaluationEngine, ExamQuestionConfig } from "@/lib/academic/evaluation-engine";
 
 export async function POST(req: NextRequest) {
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
+    if (!["FINALIZED", "CONDUCTED"].includes(exam.status)) return NextResponse.json({ error: "Exam is not finalized" }, { status: 409 });
+    await usePinnedQuestions(exam);
 
     // Look up or create attempt
     let attempt = await prisma.cBTAttempt.findFirst({
@@ -99,6 +102,7 @@ export async function PUT(req: NextRequest) {
     if (attempt.status !== "IN_PROGRESS") return NextResponse.json({ error: "Attempt is no longer active" }, { status: 409 });
 
     if (isFinalSubmit) {
+      await usePinnedQuestions(attempt.exam);
       // Evaluate CBT attempt deterministically
       const examQuestions: ExamQuestionConfig[] = attempt.exam.examQuestions.map((eq) => ({
         id: eq.id,

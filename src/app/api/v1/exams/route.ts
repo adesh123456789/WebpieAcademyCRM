@@ -3,6 +3,7 @@ import { getSessionContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkApiPermission } from "@/lib/permissions";
 import { createExamDraft, draftInput, ExamDraftError } from "@/lib/exams/draft";
+import { usePinnedQuestions } from "@/lib/exams/lifecycle";
 
 export async function GET(req: NextRequest) {
   const session = await getSessionContext(req);
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest) {
     },
     orderBy: { createdAt: "desc" },
   });
+  await Promise.all(exams.map(usePinnedQuestions));
   return NextResponse.json({ exams });
 }
 

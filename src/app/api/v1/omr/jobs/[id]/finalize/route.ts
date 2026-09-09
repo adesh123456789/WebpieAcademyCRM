@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext, createAuditLog } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { usePinnedQuestions } from "@/lib/exams/lifecycle";
 import { DeterministicEvaluationEngine, ExamQuestionConfig, StudentAttemptInput } from "@/lib/academic/evaluation-engine";
 import { MasteryAlgorithmEngine, MasteryEvidenceItem } from "@/lib/academic/mastery-engine";
 
@@ -39,6 +40,7 @@ export async function POST(
       return NextResponse.json({ error: "OMR review is incomplete", blockedSheets: blockedScans.length }, { status: 409 });
     }
 
+    await usePinnedQuestions(job.exam);
     const examQuestions: ExamQuestionConfig[] = job.exam.examQuestions.map((eq) => ({
       id: eq.id,
       questionId: eq.questionId,

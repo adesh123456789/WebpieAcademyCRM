@@ -4,6 +4,8 @@ import { call, createTestWorld, loginAs, type TestWorld } from "./support/harnes
 
 import { GET as studentsGet } from "../../src/app/api/v1/students/route";
 import { POST as examsPost } from "../../src/app/api/v1/exams/route";
+import { POST as reviewPost } from "../../src/app/api/v1/exams/[id]/review/route";
+import { POST as finalizePost } from "../../src/app/api/v1/exams/[id]/finalize/route";
 import { GET as artifactsGet } from "../../src/app/api/v1/exams/[id]/artifacts/route";
 import { POST as omrJobsPost } from "../../src/app/api/v1/omr/jobs/route";
 import { POST as omrFinalizePost } from "../../src/app/api/v1/omr/jobs/[id]/finalize/route";
@@ -79,7 +81,44 @@ describe("Golden loop / Stage 2 - exam builder & artifacts", () => {
     expect(await prisma.exam.count({ where: { tenantId: world.a.tenant.id } })).toBe(before);
   });
 
-  it.todo("S3a: draft -> review -> transactional finalize, immutable question snapshot - blocked on EXM-001");
+  it("S3a: draft -> review -> transactional finalize, immutable question snapshot", async () => {
+    const created = await call(examsPost, "/api/v1/exams", { token: teacherToken,
+      body: { title: "Versioned exam", examType: "JEE_MAIN", questionIds: [world.a.question.id] } });
+    const id = created.body.exam.id;
+    const transition = (handler: typeof reviewPost, body: object) => call(handler, `/api/v1/exams/${id}`, { token: teacherToken, params: { id }, body });
+    expect((await transition(finalizePost, { expectedVersion: 1, idempotencyKey: "early" })).status).toBe(409);
+    expect((await transition(reviewPost, { expectedVersion: 1 })).body.status).toBe("IN_REVIEW");
+    const finalized = await transition(finalizePost, { expectedVersion: 2, idempotencyKey: "finalize-1" });
+    expect(finalized.status).toBe(200);
+    expect(finalized.body.snapshotId).toBeTruthy();
+    expect((await transition(finalizePost, { expectedVersion: 2, idempotencyKey: "finalize-1" })).body).toEqual(finalized.body);
+    expect((await transition(finalizePost, { expectedVersion: 2, idempotencyKey: "different" })).status).toBe(409);
+    const original = await prisma.question.findUniqueOrThrow({ where: { id: world.a.question.id } });
+    await prisma.question.update({ where: { id: original.id }, data: { correctAnswer: JSON.stringify("D"), body: "Changed source" } });
+    try {
+      const artifact = await call(artifactsGet, `/api/v1/exams/${id}/artifacts?type=answer_key`, { token: teacherToken, params: { id } });
+      expect(artifact.status).toBe(200);
+      expect(artifact.body.answerKey[0].correctAnswer).toEqual(JSON.parse(original.correctAnswer));
+      expect(await prisma.auditLog.count({ where: { entityId: id, action: "EXAM_FINALIZE" } })).toBe(1);
+    } finally {
+      await prisma.question.update({ where: { id: original.id }, data: { correctAnswer: original.correctAnswer, body: original.body } });
+    }
+    const another = await call(examsPost, "/api/v1/exams", { token: teacherToken,
+      body: { title: "Review guard", examType: "JEE_MAIN", questionIds: [original.id] } });
+    const guardId = another.body.exam.id;
+    const guard = (handler: typeof reviewPost, body: object) => call(handler, `/api/v1/exams/${guardId}`, { token: teacherToken, params: { id: guardId }, body });
+    await prisma.question.update({ where: { id: original.id }, data: { status: "AI_CANDIDATE" } });
+    expect((await guard(reviewPost, { expectedVersion: 1 })).status).toBe(422);
+    await prisma.question.update({ where: { id: original.id }, data: { status: original.status } });
+    expect((await guard(reviewPost, { expectedVersion: 1 })).status).toBe(200);
+    await prisma.question.update({ where: { id: original.id }, data: { body: "Changed after review" } });
+    try {
+      expect((await guard(finalizePost, { expectedVersion: 2, idempotencyKey: "stale" })).status).toBe(409);
+      expect((await prisma.exam.findUniqueOrThrow({ where: { id: guardId } })).status).toBe("IN_REVIEW");
+    } finally {
+      await prisma.question.update({ where: { id: original.id }, data: { body: original.body } });
+    }
+  });
   it("S3b: blueprint validation blocks impossible mark/count combinations without partial writes", async () => {
     const before = await prisma.exam.count({ where: { tenantId: world.a.tenant.id } });
     for (const invalid of [{ totalMarks: 300 }, { totalQuestions: 75 }]) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { usePinnedQuestions } from "@/lib/exams/lifecycle";
 
 export async function GET(
   req: NextRequest,
@@ -25,6 +26,7 @@ export async function GET(
     });
 
     if (!exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
+    await usePinnedQuestions(exam);
 
     const results = exam.examResults;
     const totalStudents = results.length;

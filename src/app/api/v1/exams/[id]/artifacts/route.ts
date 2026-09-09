@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { WebPiePDFGenerator } from "@/lib/omr/pdf-generator";
+import { usePinnedQuestions } from "@/lib/exams/lifecycle";
+import { checkApiPermission } from "@/lib/permissions";
 
 export async function GET(
   req: NextRequest,
@@ -10,6 +12,7 @@ export async function GET(
   try {
     const session = await getSessionContext(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!checkApiPermission(session.role, "exams_manage")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") || "omr"; // "omr" | "question_paper" | "answer_key"
@@ -34,6 +37,7 @@ export async function GET(
       return NextResponse.json({ error: "Exam not found" }, { status: 404 });
     }
 
+    await usePinnedQuestions(exam);
     const branding = {
       instituteName: exam.tenant.name,
       examTitle: exam.title,

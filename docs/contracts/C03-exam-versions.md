@@ -9,6 +9,8 @@ POST currently accepts the existing `{title, examType, questionIds, batchIds?, d
 
 ## Endpoints
 
+Implemented lifecycle slice: `POST /api/v1/exams/:id/review` requires `{expectedVersion}` and transitions DRAFT to IN_REVIEW, incrementing version. `POST /api/v1/exams/:id/finalize` requires `{expectedVersion,idempotencyKey}` and returns `{id,status,version,snapshotId,finalizedAt}`. Both require exams_manage and tenant/branch scope. Finalize compares reviewed question content and marking configuration, stores immutable QuestionVersion JSON snapshots, and records version IDs in the exam blueprint. Changed source content returns 409 REVIEW_STALE; unapproved content returns 422 UNAPPROVED_CANDIDATE. Repeating the same finalize key/version returns the original result without a new audit record; a different key/version returns 409. Legacy finalized exams without version references remain on their existing read path and require a future backfill. Profile-based validation, PATCH/re-review editing and printed geometry are still pending.
+
 - `POST /api/v1/exams` creates a `DRAFT` with `{title,profileId,blueprint}` and returns `{id,status,profileId,blueprint,version}`.
 - `PATCH /api/v1/exams/:id` updates a draft using `{expectedVersion,...changes}` and returns the incremented version. Concurrent edits receive `409 VERSION_CONFLICT`.
 - `POST /api/v1/exams/:id/review` validates profile/question versions and blueprint totals; returns `{id,status:"IN_REVIEW",errors:[]}` or `422 BLUEPRINT_INVALID` with field errors.
