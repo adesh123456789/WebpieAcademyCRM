@@ -3,9 +3,9 @@ import { getSessionContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DeterministicOMREngine } from "@/lib/omr/omr-engine";
 import { checkApiPermission } from "@/lib/permissions";
-import { decodeGrayscale } from "@/lib/omr/image-decoder";
 import { extractSheetFromImage, STANDARD_75Q_GEOMETRY } from "@/lib/omr/raster";
 import { objectStorage } from "@/lib/storage/object-storage";
+import { MAX_OMR_BATCH_BYTES, OMRUploadError, prepareOMRFiles } from "@/lib/omr-upload/validate";
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
     }
 
     const multipart = req.headers.get("content-type")?.includes("multipart/form-data");
+    const contentLength = Number(req.headers.get("content-length"));
+    if (multipart && contentLength > MAX_OMR_BATCH_BYTES + 10 * 1024 * 1024) {
+      return NextResponse.json({ error: "OMR request exceeds upload limit" }, { status: 413 });
+    }
     const form = multipart ? await req.formData() : null;
     const body = multipart ? { examId: form!.get("examId"), batchId: form!.get("batchId") } : await req.json();
     const { examId, batchId, simulatedSheets } = body as any;
@@ -46,6 +50,10 @@ export async function POST(req: NextRequest) {
     if (!examId) {
       return NextResponse.json({ error: "Exam ID is required" }, { status: 400 });
     }
+
+    // Validate and decode every file before creating a job or writing any object.
+    const files = multipart ? form!.getAll("files").filter((value): value is File => value instanceof File) : [];
+    const prepared = multipart ? await prepareOMRFiles(files) : [];
 
     const exam = await prisma.exam.findFirst({
       where: { id: examId, tenantId: session.tenantId },
@@ -63,24 +71,20 @@ export async function POST(req: NextRequest) {
         examId,
         batchId: batchId || null,
         status: "PROCESSING",
-        totalSheets: simulatedSheets?.length || 5,
+        totalSheets: multipart ? prepared.length : simulatedSheets?.length || 5,
       },
     });
 
     if (multipart) {
-      const files = form!.getAll("files").filter((value): value is File => value instanceof File);
-      if (!files.length) return NextResponse.json({ error: "At least one OMR file is required" }, { status: 400 });
       let flaggedCount = 0;
-      for (const file of files) {
-        const bytes = Buffer.from(await file.arrayBuffer());
-        const storedUrl = await objectStorage.put(bytes, file.name);
-        const image = await decodeGrayscale(bytes, file.type);
-        const extraction = extractSheetFromImage(image, STANDARD_75Q_GEOMETRY, file.name);
+      for (const file of prepared) {
+        const storedUrl = await objectStorage.put(file.bytes, file.name);
+        const extraction = extractSheetFromImage(file.image, STANDARD_75Q_GEOMETRY, file.name);
         const student = extraction.rollNumber ? await prisma.student.findFirst({ where: { tenantId: session.tenantId, rollNumber: extraction.rollNumber } }) : null;
         if (extraction.status !== "CONFIDENT") flaggedCount++;
         await prisma.oMRScan.create({ data: { jobId: job.id, studentId: student?.id || null, detectedRollNumber: extraction.rollNumber || null, sheetImageUrl: storedUrl, confidenceScore: extraction.overallConfidence, status: extraction.status, detectedResponses: JSON.stringify(extraction.responses), ambiguityFlags: JSON.stringify(extraction.ambiguities) } });
       }
-      const updated = await prisma.oMRJob.update({ where: { id: job.id }, data: { totalSheets: files.length, processedSheets: files.length, flaggedSheets: flaggedCount, status: flaggedCount ? "REVIEW_REQUIRED" : "READY" }, include: { scans: true } });
+      const updated = await prisma.oMRJob.update({ where: { id: job.id }, data: { totalSheets: prepared.length, processedSheets: prepared.length, flaggedSheets: flaggedCount, status: flaggedCount ? "REVIEW_REQUIRED" : "READY" }, include: { scans: true } });
       return NextResponse.json({ success: true, job: updated });
     }
 
@@ -137,6 +141,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, job: updatedJob });
   } catch (err: any) {
+    if (err instanceof OMRUploadError) return NextResponse.json({ error: err.message }, { status: err.status });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
