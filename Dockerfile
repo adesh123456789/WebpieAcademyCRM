@@ -2,7 +2,7 @@
 # 22.5. Keep this in lockstep with .github/workflows/ci.yml's node-version.
 # Stage 1: Dependencies
 FROM node:22-alpine AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -10,6 +10,10 @@ RUN npm ci
 
 # Stage 2: Builder
 FROM node:22-alpine AS builder
+# Prisma's query-engine binary needs libssl to run `generate`/`db push` on
+# musl - each FROM starts a fresh layer so this doesn't inherit deps's apk
+# install. Alpine 3.20 (node:22-alpine's base) ships OpenSSL 3.
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -31,6 +35,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# The copied generated Prisma client's query-engine binary needs libssl at
+# runtime too, not just at `generate` time in the builder stage.
+RUN apk add --no-cache openssl
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
