@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { decodeGrayscale } from "@/lib/omr/image-decoder";
+import { getPdfInfo } from "@/lib/omr/pdf-render";
 import type { GrayscaleImage } from "@/lib/omr/raster";
 
 export const MAX_OMR_FILES = 50;
@@ -44,13 +45,24 @@ export async function prepareOMRFiles(files: File[]): Promise<PreparedOMRFile[]>
     const bytes = Buffer.from(await file.arrayBuffer());
     if (bytes.length !== file.size) throw new OMRUploadError(`OMR file size changed while reading: ${file.name}`);
     try {
-      const meta = await sharp(bytes, { density: 200, page: 0 }).metadata();
-      if (meta.format !== allowedFormats[file.type]) throw new OMRUploadError(`OMR file content does not match its type: ${file.name}`);
-      if (file.type === "application/pdf" && (meta.pages ?? 1) !== 1) {
-        throw new OMRUploadError(`Multi-page PDF must be split into single-sheet files: ${file.name}`);
-      }
-      if (!meta.width || !meta.height || meta.width * meta.height > MAX_OMR_PIXELS) {
-        throw new OMRUploadError(`OMR image dimensions are unsupported: ${file.name}`, 413);
+      if (file.type === "application/pdf") {
+        // sharp/libvips has zero PDF support on this build (metadata() throws for
+        // every PDF, not just multi-page ones) - use the mupdf-based reader instead.
+        // See src/lib/omr/pdf-render.ts.
+        const info = getPdfInfo(bytes);
+        if (info.pages !== 1) {
+          throw new OMRUploadError(`Multi-page PDF must be split into single-sheet files: ${file.name}`);
+        }
+        const estimatedPixels = ((info.widthPt / 72) * 200) * ((info.heightPt / 72) * 200);
+        if (!info.widthPt || !info.heightPt || estimatedPixels > MAX_OMR_PIXELS) {
+          throw new OMRUploadError(`OMR image dimensions are unsupported: ${file.name}`, 413);
+        }
+      } else {
+        const meta = await sharp(bytes, { density: 200, page: 0 }).metadata();
+        if (meta.format !== allowedFormats[file.type]) throw new OMRUploadError(`OMR file content does not match its type: ${file.name}`);
+        if (!meta.width || !meta.height || meta.width * meta.height > MAX_OMR_PIXELS) {
+          throw new OMRUploadError(`OMR image dimensions are unsupported: ${file.name}`, 413);
+        }
       }
       prepared.push({ name: file.name, bytes, image: await decodeGrayscale(bytes, file.type) });
     } catch (error) {
