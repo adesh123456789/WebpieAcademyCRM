@@ -120,8 +120,16 @@ serves real requests (verified by hand, then covered by tests below).
   a terminal open for.
 - Signed update manifest + rollback (AC-020 update path) - needs packaging
   decisions that depend on the above.
-- Trigger cloud finalize from the node after `reconnect(push)` so the
-  authoritative result exists without a separate manual step.
+- **Dropped, not just deferred**: "trigger cloud finalize from the node after
+  `reconnect(push)`." Looked at implementing it and it can't be a literal
+  auto-call - `POST /omr/jobs/:id/finalize` requires a teacher's user
+  session (`getSessionContext`), not node-pairing auth, and separately
+  hard-blocks while any scan isn't `CONFIDENT`/`OVERRIDDEN` (the existing
+  review-before-finalize safety gate). A node calling it would either fail
+  auth or, if the gate were weakened to let node-auth through, risk
+  bypassing the human review step that gate exists to enforce. Finalize
+  stays a deliberate teacher action; the node's job is getting scans synced
+  and reviewable, not deciding a result is authoritative.
 - The local API is unauthenticated by design (trusted LAN, one controlled
   caller) - worth a pass once a real local UI/companion tool exists to call
   it, to decide whether that assumption still holds.
