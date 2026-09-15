@@ -18,3 +18,5 @@ prisma/*.db
 prisma/*.db-journal
 uploads/
 tsconfig.tsbuildinfo
+node-data/
+backups/
