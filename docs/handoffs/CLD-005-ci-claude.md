@@ -1,4 +1,10 @@
-# CLD-005 - first real CI run, two build-breaking bugs found and fixed (Claude, 2026-09-15)
+# CLD-005 - first real CI run, three build-breaking bugs found and fixed (Claude, 2026-09-15)
+
+**Final status: both jobs green.** `verify` (install, schema parity, Prisma generate/push,
+tsc, full test suite, `next build`) and `container-smoke` (docker build, container run,
+HTTP 200 wait, logs, teardown) both pass as of `9d70623`. CI has never actually run before
+this pass - no remote existed - so this is the first real, end-to-end proof the build and
+the Docker image both work, not just the source tree.
 
 Wired a GitHub remote (`adesh123456789/WebpieAcademyCRM`) and pushed `master` -
 `.github/workflows/ci.yml` had never actually run before (no remote existed
@@ -61,16 +67,39 @@ the stash back right away, and moved all further reproduction into
 checkout, zero shared state. Left their files exactly as found; touched
 nothing of theirs.
 
+## Bug 3 - `container-smoke`: `docker build` still failed after the Node bump
+
+No structured error available - GitHub gates raw Actions logs behind
+sign-in, and the Checks annotations API only surfaces `::error::`-style
+annotations, not plain shell output, so a failed opaque `docker build` step
+gives nothing but "Process completed with exit code 1." Docker isn't
+installed in this environment either, so no local repro was possible.
+
+**Fix (evidence-based hypothesis, now confirmed by the green run):** Prisma's
+query-engine binary needs `libssl` to run on musl libc - the single most
+common "Prisma + Alpine" Docker failure, and this schema has no
+`binaryTargets` override, so `prisma generate` relies entirely on runtime
+platform auto-detection, which needs OpenSSL present to pick and validate
+the right engine. Each Dockerfile stage starts a fresh `FROM node:22-alpine`
+layer, so only `deps` had ever run `apk add` (`libc6-compat`, no openssl) -
+`builder` (runs `prisma generate` twice) and `runner` (whose copied client
+needs `libssl` to load the engine at container runtime) had none at all.
+Added `apk add --no-cache openssl` to all three stages. Confirmed by
+`9d70623`'s green run: `container-smoke` now builds, runs the container, and
+serves HTTP 200.
+
 ## Landed
 
 - `.github/workflows/ci.yml` - Node 20 -> 22.
-- `Dockerfile` - `node:20-alpine` -> `node:22-alpine` (all 3 stages).
+- `Dockerfile` - `node:20-alpine` -> `node:22-alpine` (all 3 stages) + `openssl`
+  installed in all three (Prisma's musl/libssl requirement).
 - `next.config.mjs` [NEW] - externalizes `sharp` + `mupdf` from the server bundle.
 
 ## Checks
 
-Isolated worktree at `9025f4c` + these 3 files: clean `npm ci`, clean
+Isolated worktree at `9025f4c` + the Node/webpack fixes: clean `npm ci`, clean
 `npm run build` (all routes, incl. `/api/v1/omr/jobs`). Local `tsc --noEmit`
-and `npm test` (39 files / 324 pass / 16 todo) both still clean in the live
-checkout - my files don't intersect Antigravity's in-flight ones. Pushed as
-`<commit after this file>`; watching the resulting CI run next.
+and `npm test` (39 files / 324 pass / 16 todo) both stayed clean in the live
+checkout throughout - none of these files intersect Antigravity's in-flight
+UI-010 ones. Real CI, run 3 (`9d70623`): **verify success, container-smoke
+success** - https://github.com/adesh123456789/WebpieAcademyCRM/actions/runs/34971151353
