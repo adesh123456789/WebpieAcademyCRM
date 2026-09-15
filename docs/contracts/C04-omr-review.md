@@ -9,6 +9,8 @@ Multipart batches require 1–50 single-sheet PNG, JPEG, or PDF files. Each file
 
 `GET /api/v1/omr/jobs/:id` returns a tenant-scoped job with scans: `{id,studentId,detectedRollNumber,status,confidenceScore,detectedResponses,verifiedResponses,ambiguityFlags,cropUrls}`. `cropUrls` are short-lived signed URLs; clients never receive filesystem paths or storage credentials. Scan statuses are `CONFIDENT`, `AMBIGUOUS`, `UNMATCHED`, `REJECTED`, or `OVERRIDDEN`.
 
+The current job list and create/override responses project `scan.sheetImageUrl` to `/api/v1/omr/scans/:id/image`. `GET` on that URL requires the user's session plus OMR permission and verifies the scan's tenant server-side; it returns 401 without a session and 404 for another tenant or missing image. The persisted `/uploads/<key>` value is never returned in these responses. The UI may use the projected URL as its full-sheet review fallback. Per-question rendered crops and short-lived signed crop URLs remain an OMR-001 follow-up.
+
 `POST /api/v1/omr/scans/:id/override` accepts `{questionNumber,newResponse,reason,expectedVersion}`. It preserves detected and verified values, records actor/time/reason in an audit event, increments the scan revision, and returns the updated scan. Cross-tenant scans, invalid option values, stale revisions, and finalized jobs are rejected.
 
 `POST /api/v1/omr/jobs/:id/finalize` accepts `{idempotencyKey,expectedVersion}`. It returns `{jobId,status:"FINALIZED",resultIds}` only when every scan is complete or explicitly overridden. Any `AMBIGUOUS`, `UNMATCHED`, `REJECTED`, or processing scan returns 409 with blocked scan IDs. Repeating an idempotency key returns the original result without duplicate `ExamResult` rows.

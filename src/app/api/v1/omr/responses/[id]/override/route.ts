@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext, createAuditLog } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkApiPermission } from "@/lib/permissions";
+import { publicOMRScan } from "@/lib/omr-upload/public-scan";
 
 export async function POST(
   req: NextRequest,
@@ -81,7 +82,7 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ success: true, scan: updated });
+    return NextResponse.json({ success: true, scan: publicOMRScan(updated) });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

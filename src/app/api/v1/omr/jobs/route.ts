@@ -6,6 +6,7 @@ import { checkApiPermission } from "@/lib/permissions";
 import { extractSheetFromImage, STANDARD_75Q_GEOMETRY } from "@/lib/omr/raster";
 import { objectStorage } from "@/lib/storage/object-storage";
 import { MAX_OMR_BATCH_BYTES, OMRUploadError, prepareOMRFiles } from "@/lib/omr-upload/validate";
+import { publicOMRJob } from "@/lib/omr-upload/public-scan";
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ jobs });
+    return NextResponse.json({ jobs: jobs.map(publicOMRJob) });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
         await prisma.oMRScan.create({ data: { jobId: job.id, studentId: student?.id || null, detectedRollNumber: extraction.rollNumber || null, sheetImageUrl: storedUrl, confidenceScore: extraction.overallConfidence, status: extraction.status, detectedResponses: JSON.stringify(extraction.responses), ambiguityFlags: JSON.stringify(extraction.ambiguities) } });
       }
       const updated = await prisma.oMRJob.update({ where: { id: job.id }, data: { totalSheets: prepared.length, processedSheets: prepared.length, flaggedSheets: flaggedCount, status: flaggedCount ? "REVIEW_REQUIRED" : "READY" }, include: { scans: true } });
-      return NextResponse.json({ success: true, job: updated });
+      return NextResponse.json({ success: true, job: publicOMRJob(updated) });
     }
 
     // Test-only density-vector path.
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
       include: { scans: true },
     });
 
-    return NextResponse.json({ success: true, job: updatedJob });
+    return NextResponse.json({ success: true, job: publicOMRJob(updatedJob) });
   } catch (err: any) {
     if (err instanceof OMRUploadError) return NextResponse.json({ error: err.message }, { status: err.status });
     return NextResponse.json({ error: err.message }, { status: 500 });
