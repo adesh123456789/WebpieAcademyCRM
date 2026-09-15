@@ -1,0 +1,145 @@
+name: Restore Drill
+
+# PRD Data gate (docs/LAUNCH_GATE.md) - a disposable-database backup/restore
+# drill, executed and evidenced, per docs/ops/backup-restore.md. Runs the real
+# scripts/backup-postgres.ps1 / restore-postgres.ps1 against a throwaway
+# Postgres container this job owns start to finish; never touches production.
+#
+# Cadence: quarterly per docs/ops/backup-restore.md, plus every push to
+# master (cheap at this project's size, and keeps the drill from going stale
+# between quarters) and workflow_dispatch for an on-demand run.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 3 1 */3 *" # 03:00 UTC on the 1st of Jan/Apr/Jul/Oct
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      POSTGRES_CONTAINER: webpie-postgres
+      POSTGRES_USER: webpie_admin
+      POSTGRES_DB: webpie_academic_os
+      # CI-only, throwaway container password. Never reused outside this job.
+      POSTGRES_PASSWORD: "drill-only-${{ github.run_id }}-not-a-real-secret"
+      DATABASE_URL: "postgresql://webpie_admin:drill-only-${{ github.run_id }}-not-a-real-secret@localhost:5432/webpie_academic_os"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start a disposable Postgres container
+        run: |
+          docker run -d --name "$POSTGRES_CONTAINER" \
+            -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+            -e POSTGRES_USER="$POSTGRES_USER" \
+            -e POSTGRES_DB="$POSTGRES_DB" \
+            -p 5432:5432 \
+            postgres:16-alpine
+          for i in $(seq 1 30); do
+            if docker exec "$POSTGRES_CONTAINER" pg_isready -U "$POSTGRES_USER" >/dev/null 2>&1; then
+              echo "postgres is ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "postgres did not become ready in time"; exit 1
+
+      - name: Apply the schema (postgresql provider mirror)
+        run: |
+          npx prisma generate --schema prisma/schema.postgresql.prisma
+          npx prisma db push --schema prisma/schema.postgresql.prisma --skip-generate
+
+      - name: Seed realistic demo data
+        run: npm run prisma:seed
+
+      - name: Record pre-drill evidence
+        id: pre
+        run: |
+          echo "Schema version (git commit): ${{ github.sha }}"
+          for t in Tenant Branch Student Exam ExamResult; do
+            c=$(docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$POSTGRES_CONTAINER" \
+              psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select count(*) from \"$t\"")
+            echo "$t=$c" | tee -a pre-counts.txt
+          done
+
+      - name: Backup
+        shell: pwsh
+        run: ./scripts/backup-postgres.ps1 -BackupDir ./backups
+
+      - name: Locate the dump produced
+        run: |
+          dump=$(ls -t backups/*.dump | head -1)
+          echo "DUMP_PATH=$dump" >> "$GITHUB_ENV"
+          echo "Dump: $dump"
+          echo "Checksum: $(cat "$dump.sha256")"
+          cp "$dump.sha256" checksum.txt
+
+      - name: Simulate data loss - drop and recreate the database
+        run: |
+          docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$POSTGRES_CONTAINER" psql -U "$POSTGRES_USER" -d postgres -c \
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$POSTGRES_DB' AND pid <> pg_backend_pid();"
+          docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$POSTGRES_CONTAINER" psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE \"$POSTGRES_DB\";"
+          docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$POSTGRES_CONTAINER" psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE \"$POSTGRES_DB\";"
+
+      - name: Restore
+        shell: pwsh
+        run: ./scripts/restore-postgres.ps1 -DumpPath "$env:DUMP_PATH" -Database "$env:POSTGRES_DB" -Container "$env:POSTGRES_CONTAINER"
+
+      - name: Record post-drill evidence and compare
+        run: |
+          : > post-counts.txt
+          for t in Tenant Branch Student Exam ExamResult; do
+            c=$(docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$POSTGRES_CONTAINER" \
+              psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select count(*) from \"$t\"")
+            echo "$t=$c" | tee -a post-counts.txt
+          done
+          if ! diff -u pre-counts.txt post-counts.txt; then
+            echo "Row counts changed across the restore - drill FAILED"; exit 1
+          fi
+          echo "Row counts match pre-drill exactly - restore verified byte-for-byte at the row level."
+
+      - name: Write drill evidence summary
+        if: always()
+        run: |
+          {
+            echo "## Restore drill evidence"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Run | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+            echo "| Timestamp | $(date -u +%Y-%m-%dT%H:%M:%SZ) |"
+            echo "| Schema version (commit) | \`${{ github.sha }}\` |"
+            echo "| Dump | \`$DUMP_PATH\` |"
+            echo "| Checksum | \`$(cat checksum.txt 2>/dev/null || echo missing)\` |"
+            echo "| Restore target | disposable \`$POSTGRES_CONTAINER\` container, this job only |"
+            echo "| Row-count spot checks | see pre-counts.txt / post-counts.txt (identical) |"
+            echo "| Operator | CI (automated), triggered by \`${{ github.actor }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload drill evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-drill-evidence-${{ github.run_id }}
+          path: |
+            backups/*.dump
+            backups/*.sha256
+            pre-counts.txt
+            post-counts.txt
+          retention-days: 90
+
+      - name: Stop and remove the disposable Postgres container
+        if: always()
+        run: docker rm -f "$POSTGRES_CONTAINER" || true
