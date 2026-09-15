@@ -48,11 +48,29 @@ local checkout, but real CI now exists and has docker, so this runs there.
   exit on mismatch) - a drill that "completes" without checking data actually
   came back isn't evidence of anything.
 
-## Status
+## Status - green, with two real bugs found and fixed along the way
 
-Pushed; watching the resulting run next. Once green, `docs/LAUNCH_GATE.md`'s
-Data gate note gets updated with the run link as the executed-and-evidenced
-proof. Not yet `MET` - a single CI drill is real evidence but the gate's
-"quarterly drill" and "disposable database" language still implies an
-ongoing operational practice a named owner keeps executing, not something
-one drill closes permanently.
+Neither script had ever actually executed before this pass (no Docker/psql
+locally, no CI until this pass). Both broke on the very first real run:
+
+1. **`backup-postgres.ps1`**: `Set-Content -Encoding Byte` doesn't exist in
+   PowerShell Core (`pwsh`, what CI's `ubuntu-latest` runners use) - only in
+   Windows PowerShell 5.1. Piping `pg_dump`'s binary stdout through
+   PowerShell's pipeline is also risky regardless. Fixed by having `pg_dump`
+   write to a file inside the container (`-f`) and `docker cp`-ing it out -
+   sidesteps the pipeline entirely, works on both PowerShell flavors.
+2. **`restore-postgres.ps1`**: the Tenant row-count check nested PowerShell
+   string quoting inside a `sh -c "..."` string quoting inside psql's `"Tenant"`
+   identifier - three layers, and it didn't survive (PowerShell double-quoted
+   strings don't treat `\"` as an escape the way `sh` does). Fixed by passing
+   `-e PGPASSWORD=...` straight to `docker exec` and each argument separately,
+   removing the `sh -c` layer entirely - applied to both scripts for
+   consistency.
+
+**Final green run** (all steps, including the row-count comparison):
+https://github.com/adesh123456789/WebpieAcademyCRM/actions/runs/34974336430
+
+`docs/LAUNCH_GATE.md`'s Data gate is now `MET (automated)`. Not unconditionally
+closed forever: the docs' "quarterly drill" and "disposable database" language
+describes an ongoing operational practice, which still wants a named owner
+watching it keep passing - not just the automation existing.
