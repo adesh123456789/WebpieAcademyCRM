@@ -11,8 +11,11 @@ $db = if ($env:POSTGRES_DB) { $env:POSTGRES_DB } else { "webpie_academic_os" }
 # binary stdout through PowerShell's pipeline risks corruption (and
 # `Set-Content -Encoding Byte`, needed to capture it as bytes at all, doesn't
 # exist in PowerShell Core / pwsh, only Windows PowerShell 5.1 - this script
-# needs to run on both).
-docker exec $container sh -c "PGPASSWORD='$($env:POSTGRES_PASSWORD)' pg_dump -Fc -U '$user' -d '$db' -f /tmp/webpie-backup.dump"
+# needs to run on both). `-e PGPASSWORD=` passed straight to `docker exec`
+# (not through an intermediate `sh -c "..."` string) avoids a second layer of
+# shell-quoting entirely - see restore-postgres.ps1's history for why that
+# nesting is a real trap once any argument needs an embedded quote.
+docker exec -e "PGPASSWORD=$($env:POSTGRES_PASSWORD)" $container pg_dump -Fc -U $user -d $db -f /tmp/webpie-backup.dump
 docker cp "${container}:/tmp/webpie-backup.dump" $dump
 docker exec $container rm -f /tmp/webpie-backup.dump
 $hash = (Get-FileHash -Algorithm SHA256 $dump).Hash
