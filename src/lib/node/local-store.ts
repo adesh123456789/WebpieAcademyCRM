@@ -7,8 +7,8 @@ import type { SyncEventEnvelope } from "@/lib/sync";
  * sync events, and the resumable pull cursor.
  *
  * `NodeStore` is the contract; `MemoryNodeStore` is the reference implementation
- * used by tests and the runtime until a SQLite-backed store lands (same
- * interface over better-sqlite3 / Prisma-SQLite - needs a dependency decision).
+ * used by tests. `SqliteNodeStore` (./sqlite-store.ts) is the durable
+ * implementation per `docs/contracts/NODE-STORE-SQLITE.md`, over `node:sqlite`.
  */
 
 export interface NodePairing {
