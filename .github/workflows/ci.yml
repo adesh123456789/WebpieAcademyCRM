@@ -27,7 +27,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # EDGE-001's SqliteNodeStore uses node:sqlite (stable, unflagged since
+          # 22.5) - 20 predates it and every process.getBuiltinModule("node:sqlite")
+          # call throws. Keep in lockstep with the Dockerfile's node:22-alpine.
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
