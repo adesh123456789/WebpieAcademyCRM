@@ -95,7 +95,21 @@ jobs:
 
       - name: Restore
         shell: pwsh
-        run: ./scripts/restore-postgres.ps1 -DumpPath "$env:DUMP_PATH" -Database "$env:POSTGRES_DB" -Container "$env:POSTGRES_CONTAINER"
+        run: |
+          # Capture full output regardless of outcome - GitHub gates raw step
+          # logs behind sign-in, but ::error:: annotations are readable via
+          # the public Checks API, which is how this failure gets diagnosed
+          # without a human pasting the log by hand.
+          & ./scripts/restore-postgres.ps1 -DumpPath "$env:DUMP_PATH" -Database "$env:POSTGRES_DB" -Container "$env:POSTGRES_CONTAINER" 2>&1 |
+            Tee-Object -FilePath restore-log.txt
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            Get-Content restore-log.txt -Tail 25 | ForEach-Object {
+              $escaped = $_ -replace '%', '%25' -replace "`n", '%0A' -replace "`r", '%0D'
+              Write-Output "::error::$escaped"
+            }
+            exit $exitCode
+          }
 
       - name: Record post-drill evidence and compare
         run: |
@@ -138,7 +152,9 @@ jobs:
             backups/*.sha256
             pre-counts.txt
             post-counts.txt
+            restore-log.txt
           retention-days: 90
+          if-no-files-found: ignore
 
       - name: Stop and remove the disposable Postgres container
         if: always()
