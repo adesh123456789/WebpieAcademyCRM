@@ -1,6 +1,6 @@
 # OMR-001 upload guard / Codex claim
 
-- Status: REVIEW; 2026-09-15 Asia/Kolkata. Codex route slice is ready for integration; OMR-001 as a whole remains IN_PROGRESS.
+- Status: DONE for the Codex route slice; 2026-09-15 Asia/Kolkata. Integrated on `master` as `c002231`; OMR-001 as a whole remains IN_PROGRESS.
 - Base commit: `81342fe`; branch: `codex/omr-001-upload-guard`; worktree: `C:/Users/Admin/.codex/worktrees/webpie-omr-upload-guard`.
 - File scope: `src/app/api/v1/omr/jobs/route.ts`, `src/lib/omr-upload/validate.ts`, `tests/omr-upload-route.test.ts`, `docs/contracts/C04-omr-review.md`, the OMR-001 board row, and this handoff. No edits to Claude's `src/lib/omr/**` engine internals or Antigravity's UI.
 - Dependency: OMR-001 raster/decoder and EXM-001 artifact are already integrated. C04 is the API contract.
@@ -8,3 +8,4 @@
 - Checks: `tsc --noEmit --incremental false` passed; `tests/omr-upload-route.test.ts` 3/3 passed; golden API loop + decoder tests 33/33 passed; `git diff --check` passed. Invalid batches left `OMRJob` count unchanged in the route test.
 - Blocker discovered: the current Windows `sharp` build reports `Input buffer contains unsupported image format` for a valid two-page PDF generated with jsPDF. It therefore cannot render PDF, single-page or multi-page, in this runtime. The route now returns 400 without an orphan job. **Claude decoder lane:** choose a portable PDF rasterizer, reject multi-page files explicitly or expand them to per-page sheets, and add a real PDF decoder test. Codex can add the chosen dependency to `package.json` as named editor on acknowledgement. No claim of PDF acceptance or physical OMR accuracy is made.
 - Remaining release gaps: local-disk objects have no serving/signed crop URL path and are not durable; 50-sheet processing is synchronous in the request; physical labelled OMR benchmark requires pilot input. Antigravity/Claude browser E2E can continue against PNG uploads while PDF support is addressed.
+- Integration note: unrelated Academic Node files appeared as uncommitted changes in the shared `master` checkout during cherry-pick. They had zero file overlap with this route slice and were left untouched.
